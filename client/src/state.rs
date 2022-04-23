@@ -16,7 +16,7 @@ impl State {
     pub async fn new(event_loop: &EventLoop<()>) -> Self {
         let window = WindowBuilder::new()
             .with_title("Opencuboids")
-            .build(&event_loop)
+            .build(event_loop)
             .unwrap();
 
         let instance = wgpu::Instance::new(wgpu::Backends::all());
@@ -40,7 +40,7 @@ impl State {
                 None,
             )
             .await
-            .expect("Failed to create a device!");
+            .expect("Failed to request a device!");
 
         let size = window.inner_size();
         let config = wgpu::SurfaceConfiguration {

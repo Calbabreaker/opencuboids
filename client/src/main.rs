@@ -8,13 +8,14 @@ use winit::{
 
 mod renderer;
 mod state;
+mod texture;
 
 fn main() {
     env_logger::init();
     let event_loop = EventLoop::new();
+    let state = pollster::block_on(State::new(&event_loop));
     let mut world = World::new();
 
-    let state = pollster::block_on(State::new(&event_loop));
     world.insert_resource(RendererData::new(&state));
     world.insert_resource(state);
 
