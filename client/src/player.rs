@@ -4,7 +4,7 @@ use winit::event::VirtualKeyCode;
 use crate::{
     camera::Camera,
     input::Input,
-    physics::{Position, Rotation, Velocity},
+    physics::{PhysicsBody, Position, Rotation},
 };
 
 #[derive(Component)]
@@ -12,11 +12,11 @@ pub struct Player;
 
 pub fn player_movement(
     input: Res<Input>,
-    mut query: Query<(&mut Velocity, &mut Rotation, With<Player>)>,
+    mut query: Query<(&mut PhysicsBody, &mut Rotation, With<Player>)>,
 ) {
-    let (mut velocity, mut rotation, _) = query.single_mut();
+    let (mut body, mut rotation, _) = query.single_mut();
 
-    const SENSITIVITY: f32 = 0.1;
+    const SENSITIVITY: f32 = 0.2;
     rotation.x -= input.mouse_offset.x * SENSITIVITY;
     rotation.y = (rotation.y - input.mouse_offset.y * SENSITIVITY).clamp(-89.0, 89.0);
 
@@ -41,11 +41,11 @@ pub fn player_movement(
     if input.is_key_pressed(VirtualKeyCode::Space) {
         force += glam::Vec3::Y;
     }
-    if input.is_key_pressed(VirtualKeyCode::Capital) {
+    if input.is_key_pressed(VirtualKeyCode::LShift) {
         force -= glam::Vec3::Y;
     }
 
-    velocity.vector = force.normalize_or_zero();
+    body.acceleration = force.normalize_or_zero() * 2.0;
 }
 
 pub fn camera_update(

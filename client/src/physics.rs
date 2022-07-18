@@ -26,6 +26,10 @@ impl Time {
 
         self.last_update = Some(now);
     }
+
+    pub fn update_system(mut res: ResMut<Self>) {
+        res.update();
+    }
 }
 
 #[derive(Component, Default)]
@@ -40,12 +44,17 @@ pub struct Rotation {
 }
 
 #[derive(Component, Default)]
-pub struct Velocity {
-    pub vector: glam::Vec3,
+pub struct PhysicsBody {
+    pub velocity: glam::Vec3,
+    pub acceleration: glam::Vec3,
 }
 
-pub fn movement(time: Res<Time>, mut query: Query<(&mut Position, &Velocity)>) {
-    for (mut position, velocity) in query.iter_mut() {
-        position.vector += velocity.vector * time.delta_seconds;
+pub fn movement(time: Res<Time>, mut query: Query<(&mut Position, &mut PhysicsBody)>) {
+    for (mut position, mut body) in query.iter_mut() {
+        const FRICTION: f32 = 20.0;
+        body.velocity =
+            body.velocity + body.acceleration - (body.velocity * FRICTION) * time.delta_seconds;
+        position.vector += body.velocity * time.delta_seconds;
+        body.acceleration = glam::Vec3::ZERO;
     }
 }

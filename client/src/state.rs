@@ -53,6 +53,9 @@ impl State {
 
         surface.configure(&device, &config);
 
+        window.set_cursor_grab(true).expect("Failed to lock mouse!");
+        window.set_cursor_visible(false);
+
         Self {
             window,
             surface,

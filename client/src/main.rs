@@ -2,7 +2,7 @@ use bevy_ecs::event::Events;
 use bevy_ecs::prelude::*;
 use camera::Camera;
 use input::Input;
-use physics::{movement, Position, Rotation, Time, Velocity};
+use physics::{movement, PhysicsBody, Position, Rotation, Time};
 use player::{camera_update, player_movement, Player};
 use renderer::{render, viewport_resize, RendererData, ViewportResizeEvent};
 use state::State;
@@ -37,7 +37,7 @@ fn main() {
         .insert(Position {
             vector: glam::vec3(0.0, 0.0, -2.0),
         })
-        .insert(Velocity::default())
+        .insert(PhysicsBody::default())
         .insert(Rotation { x: 90.0, y: 0.0 })
         .insert(Player);
 
@@ -45,6 +45,9 @@ fn main() {
     schedule.add_stage(
         "update",
         SystemStage::single_threaded()
+            .with_system(Events::<ViewportResizeEvent>::update_system)
+            .with_system(Time::update_system)
+            .with_system(Input::update_system)
             .with_system(player_movement)
             .with_system(movement),
     );
@@ -63,9 +66,6 @@ fn main() {
 
         match event {
             Event::MainEventsCleared => {
-                viewport_resize_event.update();
-                world.get_resource_mut::<Time>().unwrap().update();
-                world.get_resource_mut::<Input>().unwrap().update();
                 schedule.run(&mut world);
             }
             Event::WindowEvent { ref event, .. } => match event {
@@ -76,11 +76,12 @@ fn main() {
                 WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                     viewport_resize_event.send(ViewportResizeEvent(**new_inner_size));
                 }
-                _ => world
-                    .get_resource_mut::<Input>()
-                    .unwrap()
-                    .process_event(&event),
+                _ => (),
             },
+            Event::DeviceEvent { event, .. } => world
+                .get_resource_mut::<Input>()
+                .unwrap()
+                .process_event(&event),
             _ => (),
         }
     });
