@@ -1,12 +1,12 @@
 use bevy_ecs::event::Events;
 use bevy_ecs::prelude::*;
 use camera::Camera;
-use chunk_renderer::{chunk_render_system, ChunkRenderer};
 use input::Input;
 use physics::{physics_system, PhysicsBody, Position, Rotation, Time};
 use player::{camera_update_system, mouse_lock_system, player_movement_system, Player};
 use renderer::{
-    post_render_system, pre_render_system, viewport_resize, Renderer, ViewportResizeEvent,
+    chunk_render_system, post_render_system, pre_render_system, viewport_resize, ChunkRenderer,
+    MainRenderer, ViewportResizeEvent,
 };
 use window::Window;
 use winit::{
@@ -15,19 +15,17 @@ use winit::{
 };
 
 mod camera;
-mod chunk_renderer;
 mod input;
 mod physics;
 mod player;
 mod renderer;
-mod texture;
 mod window;
 
 fn main() {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = Window::new(&event_loop);
-    let renderer = pollster::block_on(Renderer::new(&window));
+    let renderer = pollster::block_on(MainRenderer::new(&window));
 
     let mut world = World::new();
     world.insert_resource(ChunkRenderer::new(&renderer));
@@ -38,6 +36,7 @@ fn main() {
     world.insert_resource(Camera::new(f32::to_radians(60.0), 0.01, 1000.0));
     world.insert_resource(Events::<ViewportResizeEvent>::default());
 
+    // Player entity
     world
         .spawn()
         .insert(Position {

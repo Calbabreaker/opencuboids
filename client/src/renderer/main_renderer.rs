@@ -1,5 +1,12 @@
+use std::sync::Arc;
+
 use crate::{camera::Camera, window::Window};
 use bevy_ecs::prelude::*;
+
+use super::{
+    bind_group::{BindGroup, BindGroupEntry},
+    render_pipeline::RenderPipeline,
+};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -7,24 +14,23 @@ pub struct GlobalUniform {
     pub view_projection: glam::Mat4,
 }
 
-pub struct Renderer {
+pub struct MainRenderer {
     surface: wgpu::Surface,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
     pub size: winit::dpi::PhysicalSize<u32>,
-    pub global_bind_group_layout: wgpu::BindGroupLayout,
-    pub global_bind_group: wgpu::BindGroup,
+    pub global_bind_group: Arc<BindGroup>,
     global_uniform_buffer: wgpu::Buffer,
     encoder: Option<wgpu::CommandEncoder>,
     view: Option<wgpu::TextureView>,
     output: Option<wgpu::SurfaceTexture>,
 }
 
-impl Renderer {
+impl MainRenderer {
     pub async fn new(window: &Window) -> Self {
         let instance = wgpu::Instance::new(wgpu::Backends::all());
-        let surface = unsafe { instance.create_surface(&window.handle) };
+        let surface = unsafe { instance.create_surface(&window.winit_window) };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -64,29 +70,18 @@ impl Renderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let global_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: None,
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
-
-        let global_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
-            layout: &global_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
+        let global_bind_group = BindGroup::new(
+            &device,
+            &[BindGroupEntry {
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
                 resource: global_uniform_buffer.as_entire_binding(),
             }],
-        });
+        );
 
         Self {
             surface,
@@ -94,9 +89,8 @@ impl Renderer {
             queue,
             config,
             size,
+            global_bind_group: Arc::new(global_bind_group),
             global_uniform_buffer,
-            global_bind_group_layout,
-            global_bind_group,
             encoder: None,
             view: None,
             output: None,
@@ -135,12 +129,15 @@ impl Renderer {
         Some(())
     }
 
-    pub fn begin_render_pass(&mut self) -> Option<wgpu::RenderPass> {
+    pub fn begin_render_pass<'a>(
+        &'a mut self,
+        render_pipeline: &'a RenderPipeline,
+    ) -> Option<wgpu::RenderPass> {
         let mut render_pass =
             self.encoder
                 .as_mut()?
                 .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("Render Pass"),
+                    label: None,
                     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                         view: self.view.as_ref()?,
                         resolve_target: None,
@@ -156,13 +153,18 @@ impl Renderer {
                     })],
                     depth_stencil_attachment: None,
                 });
-        render_pass.set_bind_group(0, &self.global_bind_group, &[]);
+
+        render_pass.set_pipeline(&render_pipeline.pipeline);
+        for (i, bind_group) in render_pipeline.bind_groups.iter().enumerate() {
+            render_pass.set_bind_group(i as u32, &bind_group.group, &[]);
+        }
+
         Some(render_pass)
     }
 }
 
 pub fn pre_render_system(
-    mut renderer: ResMut<Renderer>,
+    mut renderer: ResMut<MainRenderer>,
     camera: Res<Camera>,
     mut viewport_resize_event: EventWriter<ViewportResizeEvent>,
 ) {
@@ -186,14 +188,14 @@ pub fn pre_render_system(
     };
 }
 
-pub fn post_render_system(mut renderer: ResMut<Renderer>) {
+pub fn post_render_system(mut renderer: ResMut<MainRenderer>) {
     renderer.present_render();
 }
 
 pub struct ViewportResizeEvent(pub winit::dpi::PhysicalSize<u32>);
 
 pub fn viewport_resize(
-    mut renderer: ResMut<Renderer>,
+    mut renderer: ResMut<MainRenderer>,
     mut camera: ResMut<Camera>,
     mut viewport_resize_event: EventReader<ViewportResizeEvent>,
 ) {

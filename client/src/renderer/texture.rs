@@ -1,4 +1,4 @@
-use crate::renderer::Renderer;
+use super::main_renderer::MainRenderer;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -7,7 +7,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(renderer: &Renderer, image: &image::DynamicImage) -> Self {
+    pub fn new(renderer: &MainRenderer, image: &image::DynamicImage) -> Self {
         let size = wgpu::Extent3d {
             width: image.width(),
             height: image.height(),

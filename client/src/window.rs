@@ -1,14 +1,14 @@
 use winit::{dpi::PhysicalSize, event_loop::EventLoop, window::WindowBuilder};
 
 pub struct Window {
-    pub handle: winit::window::Window,
+    pub winit_window: winit::window::Window,
     mouse_locked: bool,
 }
 
 impl Window {
     pub fn new(event_loop: &EventLoop<()>) -> Self {
         Self {
-            handle: WindowBuilder::new()
+            winit_window: WindowBuilder::new()
                 .with_title("Opencuboids")
                 .build(event_loop)
                 .unwrap(),
@@ -17,10 +17,10 @@ impl Window {
     }
 
     pub fn set_mouse_lock(&mut self, locked: bool) {
-        self.handle
+        self.winit_window
             .set_cursor_grab(locked)
             .expect("Failed to lock mouse!");
-        self.handle.set_cursor_visible(!locked);
+        self.winit_window.set_cursor_visible(!locked);
         self.mouse_locked = locked;
     }
 
@@ -29,6 +29,6 @@ impl Window {
     }
 
     pub fn size(&self) -> PhysicalSize<u32> {
-        self.handle.inner_size()
+        self.winit_window.inner_size()
     }
 }
