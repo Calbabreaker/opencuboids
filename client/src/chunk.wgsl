@@ -12,7 +12,7 @@ struct GlobalUniform {
     view_projection: mat4x4<f32>,
 };
 
-@group(1) @binding(0)
+@group(0) @binding(0)
 var<uniform> global: GlobalUniform;
 
 @vertex
@@ -23,9 +23,9 @@ fn vs_main(vertex: VertexInput) -> VertexOutput {
     return out;
 }
 
-@group(0) @binding(0)
+@group(1) @binding(0)
 var diffuse_texture: texture_2d<f32>;
-@group(0) @binding(1)
+@group(1) @binding(1)
 var diffuse_sampler: sampler;
 
 @fragment

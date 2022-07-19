@@ -1,4 +1,4 @@
-use crate::state::State;
+use crate::renderer::Renderer;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -7,14 +7,14 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(state: &State, image: &image::DynamicImage) -> Self {
+    pub fn new(renderer: &Renderer, image: &image::DynamicImage) -> Self {
         let size = wgpu::Extent3d {
             width: image.width(),
             height: image.height(),
             depth_or_array_layers: 1,
         };
 
-        let texture = state.device.create_texture(&wgpu::TextureDescriptor {
+        let texture = renderer.device.create_texture(&wgpu::TextureDescriptor {
             label: None,
             size,
             mip_level_count: 1,
@@ -24,7 +24,7 @@ impl Texture {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         });
 
-        state.queue.write_texture(
+        renderer.queue.write_texture(
             wgpu::ImageCopyTexture {
                 texture: &texture,
                 mip_level: 0,
@@ -43,7 +43,7 @@ impl Texture {
         );
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = state.device.create_sampler(&wgpu::SamplerDescriptor {
+        let sampler = renderer.device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,

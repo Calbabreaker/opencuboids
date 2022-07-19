@@ -49,7 +49,7 @@ pub struct PhysicsBody {
     pub acceleration: glam::Vec3,
 }
 
-pub fn movement(time: Res<Time>, mut query: Query<(&mut Position, &mut PhysicsBody)>) {
+pub fn physics_system(time: Res<Time>, mut query: Query<(&mut Position, &mut PhysicsBody)>) {
     for (mut position, mut body) in query.iter_mut() {
         const FRICTION: f32 = 20.0;
         body.velocity =

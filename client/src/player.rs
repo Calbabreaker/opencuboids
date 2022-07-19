@@ -5,12 +5,13 @@ use crate::{
     camera::Camera,
     input::Input,
     physics::{PhysicsBody, Position, Rotation},
+    window::Window,
 };
 
 #[derive(Component)]
 pub struct Player;
 
-pub fn player_movement(
+pub fn player_movement_system(
     input: Res<Input>,
     mut query: Query<(&mut PhysicsBody, &mut Rotation, With<Player>)>,
 ) {
@@ -48,10 +49,17 @@ pub fn player_movement(
     body.acceleration = force.normalize_or_zero() * 2.0;
 }
 
-pub fn camera_update(
+pub fn camera_update_system(
     mut camera: ResMut<Camera>,
     query: Query<(&Position, &Rotation, With<Player>)>,
 ) {
     let (position, rotation, _) = query.single();
     camera.update(position, rotation);
+}
+
+pub fn mouse_lock_system(mut state: ResMut<Window>, input: Res<Input>) {
+    if input.is_key_just_pressed(VirtualKeyCode::Escape) {
+        let locked = state.mouse_locked();
+        state.set_mouse_lock(!locked);
+    }
 }
