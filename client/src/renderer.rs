@@ -107,6 +107,8 @@ impl Renderer {
         self.size = size;
         self.config.width = size.width;
         self.config.height = size.height;
+        self.output = None;
+        self.view = None;
         self.surface.configure(&self.device, &self.config);
     }
 
