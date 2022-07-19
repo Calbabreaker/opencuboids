@@ -19,6 +19,7 @@ impl Camera {
         }
     }
 
+    // Updates the view projection matrix for later use for rendering
     pub fn update(&mut self, position: &Position, rotation: &Rotation) {
         let yaw = rotation.x.to_radians();
         let pitch = rotation.y.to_radians();
@@ -42,11 +43,6 @@ impl Camera {
     }
 
     pub fn get_projection(&self) -> glam::Mat4 {
-        return glam::Mat4::perspective_lh(
-            self.fov_radians,
-            self.aspect_ratio,
-            self.near,
-            self.far,
-        );
+        glam::Mat4::perspective_lh(self.fov_radians, self.aspect_ratio, self.near, self.far)
     }
 }

@@ -64,7 +64,9 @@ fn main() {
     );
     schedule.add_stage(
         "render",
-        SystemStage::parallel().with_system(chunk_render_system),
+        SystemStage::parallel()
+            // Renders chunk mesh update events
+            .with_system(chunk_render_system),
     );
     schedule.add_stage(
         "postrender",

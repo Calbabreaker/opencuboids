@@ -19,34 +19,35 @@ pub fn player_movement_system(
 
     const SENSITIVITY: f32 = 0.2;
     rotation.x -= input.mouse_offset.x * SENSITIVITY;
-    rotation.y = (rotation.y - input.mouse_offset.y * SENSITIVITY).clamp(-89.0, 89.0);
+    rotation.y = f32::clamp(rotation.y - input.mouse_offset.y * SENSITIVITY, -89.0, 89.0);
 
+    // Only in the xz plane
     let yaw = rotation.x.to_radians();
     let front = glam::vec3(yaw.cos(), 0.0, yaw.sin()).normalize();
     let right = front.cross(glam::Vec3::Y);
 
-    let mut force = glam::Vec3::ZERO;
     if input.is_key_pressed(VirtualKeyCode::W) {
-        force += front;
+        body.force += front;
     }
     if input.is_key_pressed(VirtualKeyCode::S) {
-        force -= front;
+        body.force -= front;
     }
     if input.is_key_pressed(VirtualKeyCode::D) {
-        force -= right;
+        body.force -= right;
     }
     if input.is_key_pressed(VirtualKeyCode::A) {
-        force += right;
+        body.force += right;
     }
 
     if input.is_key_pressed(VirtualKeyCode::Space) {
-        force += glam::Vec3::Y;
+        body.force += glam::Vec3::Y;
     }
     if input.is_key_pressed(VirtualKeyCode::LShift) {
-        force -= glam::Vec3::Y;
+        body.force -= glam::Vec3::Y;
     }
 
-    body.acceleration = force.normalize_or_zero() * 2.0;
+    const SPEED: f32 = 2.0;
+    body.force = body.force.normalize_or_zero() * SPEED;
 }
 
 pub fn camera_update_system(

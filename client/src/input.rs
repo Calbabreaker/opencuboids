@@ -44,27 +44,27 @@ pub struct Input {
 
 impl Input {
     pub fn is_key_pressed(&self, key_code: VirtualKeyCode) -> bool {
-        return self.key_state.pressed.contains(&key_code);
+        self.key_state.pressed.contains(&key_code)
     }
 
     pub fn is_key_just_pressed(&self, key_code: VirtualKeyCode) -> bool {
-        return self.key_state.just_pressed.contains(&key_code);
+        self.key_state.just_pressed.contains(&key_code)
     }
 
     // pub fn is_key_just_released(&self, key_code: VirtualKeyCode) -> bool {
-    //     return self.key_state.just_released.contains(&key_code);
+    //     self.key_state.just_released.contains(&key_code)
     // }
 
     // pub fn is_mouse_pressed(&self, mouse_code: ButtonId) -> bool {
-    //     return self.mouse_state.pressed.contains(&mouse_code);
+    //     self.mouse_state.pressed.contains(&mouse_code)
     // }
 
     // pub fn is_mouse_just_pressed(&self, mouse_code: ButtonId) -> bool {
-    //     return self.mouse_state.just_pressed.contains(&mouse_code);
+    //     self.mouse_state.just_pressed.contains(&mouse_code)
     // }
 
     // pub fn is_mouse_just_released(&self, mouse_code: ButtonId) -> bool {
-    //     return self.mouse_state.just_released.contains(&mouse_code);
+    //     self.mouse_state.just_released.contains(&mouse_code)
     // }
 
     pub fn update(&mut self) {

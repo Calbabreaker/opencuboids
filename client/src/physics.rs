@@ -46,15 +46,15 @@ pub struct Rotation {
 #[derive(Component, Default)]
 pub struct PhysicsBody {
     pub velocity: glam::Vec3,
-    pub acceleration: glam::Vec3,
+    pub force: glam::Vec3,
 }
 
 pub fn physics_system(time: Res<Time>, mut query: Query<(&mut Position, &mut PhysicsBody)>) {
     for (mut position, mut body) in query.iter_mut() {
         const FRICTION: f32 = 20.0;
-        body.velocity =
-            body.velocity + body.acceleration - (body.velocity * FRICTION) * time.delta_seconds;
+        let friction_force = (body.velocity * FRICTION) * time.delta_seconds;
+        body.velocity = body.velocity + body.force - friction_force;
         position.vector += body.velocity * time.delta_seconds;
-        body.acceleration = glam::Vec3::ZERO;
+        body.force = glam::Vec3::ZERO;
     }
 }

@@ -106,6 +106,7 @@ impl MainRenderer {
         self.surface.configure(&self.device, &self.config);
     }
 
+    // Creates the output texture and encoder for rendering
     fn prepare_render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         self.view = Some(
@@ -133,26 +134,24 @@ impl MainRenderer {
         &'a mut self,
         render_pipeline: &'a RenderPipeline,
     ) -> Option<wgpu::RenderPass> {
-        let mut render_pass =
-            self.encoder
-                .as_mut()?
-                .begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: None,
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: self.view.as_ref()?,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color {
-                                r: 0.1,
-                                g: 0.2,
-                                b: 0.3,
-                                a: 1.0,
-                            }),
-                            store: true,
-                        },
-                    })],
-                    depth_stencil_attachment: None,
-                });
+        let encoder = self.encoder.as_mut()?;
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: self.view.as_ref()?,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                        r: 0.1,
+                        g: 0.2,
+                        b: 0.3,
+                        a: 1.0,
+                    }),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
 
         render_pass.set_pipeline(&render_pipeline.pipeline);
         for (i, bind_group) in render_pipeline.bind_groups.iter().enumerate() {
@@ -168,14 +167,13 @@ pub fn pre_render_system(
     camera: Res<Camera>,
     mut viewport_resize_event: EventWriter<ViewportResizeEvent>,
 ) {
-    let uniform = GlobalUniform {
-        view_projection: camera.get_view_projection(),
-    };
-
+    // Write the global uniform
     renderer.queue.write_buffer(
         &renderer.global_uniform_buffer,
         0,
-        bytemuck::cast_slice(&[uniform]),
+        bytemuck::cast_slice(&[GlobalUniform {
+            view_projection: camera.get_view_projection(),
+        }]),
     );
 
     match renderer.prepare_render() {
