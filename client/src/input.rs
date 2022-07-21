@@ -1,6 +1,9 @@
-use bevy_ecs::prelude::ResMut;
+use bevy_ecs::prelude::*;
 use std::hash::Hash;
-use winit::event::{ButtonId, DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
+
+use crate::window::{
+    ElementState, KeyboardInput, MouseButton, MouseInput, MouseMotion, VirtualKeyCode,
+};
 
 struct InputState<T: Eq + Hash> {
     pressed: bevy_utils::HashSet<T>,
@@ -18,7 +21,7 @@ impl<T: Eq + Hash> Default for InputState<T> {
     }
 }
 
-impl<T: Copy + Eq + Hash + std::fmt::Debug> InputState<T> {
+impl<T: Copy + Eq + Hash> InputState<T> {
     fn press(&mut self, code: T) {
         self.pressed.insert(code);
         self.just_pressed.insert(code);
@@ -38,7 +41,7 @@ impl<T: Copy + Eq + Hash + std::fmt::Debug> InputState<T> {
 #[derive(Default)]
 pub struct Input {
     key_state: InputState<VirtualKeyCode>,
-    mouse_state: InputState<ButtonId>,
+    mouse_state: InputState<MouseButton>,
     pub mouse_offset: glam::Vec2,
 }
 
@@ -72,29 +75,41 @@ impl Input {
         self.key_state.clear();
         self.mouse_state.clear();
     }
+}
 
-    pub fn update_system(mut res: ResMut<Self>) {
-        res.update();
+fn process_events(
+    mut input: ResMut<Input>,
+    mut keyboard_input_event: EventReader<KeyboardInput>,
+    mut mouse_input_event: EventReader<MouseInput>,
+    mut mouse_motion_event: EventReader<MouseMotion>,
+) {
+    input.update();
+
+    for event in keyboard_input_event.iter() {
+        match event.state {
+            ElementState::Pressed => input.key_state.press(event.keycode),
+            ElementState::Released => input.key_state.release(event.keycode),
+        }
     }
 
-    pub fn process_event(&mut self, event: &DeviceEvent) {
-        match event {
-            DeviceEvent::Key(KeyboardInput {
-                virtual_keycode: Some(virtual_keycode),
-                state,
-                ..
-            }) => match state {
-                ElementState::Pressed => self.key_state.press(*virtual_keycode),
-                ElementState::Released => self.key_state.release(*virtual_keycode),
-            },
-            DeviceEvent::Button { button, state } => match state {
-                ElementState::Pressed => self.mouse_state.press(*button),
-                ElementState::Released => self.mouse_state.release(*button),
-            },
-            DeviceEvent::MouseMotion { delta } => {
-                self.mouse_offset = glam::vec2(delta.0 as f32, delta.1 as f32);
-            }
-            _ => (),
-        }
+    for event in mouse_input_event.iter() {
+        match event.state {
+            ElementState::Pressed => input.mouse_state.press(event.button),
+            ElementState::Released => input.mouse_state.release(event.button),
+        };
+    }
+
+    for event in mouse_motion_event.iter() {
+        input.mouse_offset = event.delta;
+    }
+}
+
+#[derive(Default)]
+pub struct InputPlugin;
+
+impl bevy_app::Plugin for InputPlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        app.init_resource::<Input>()
+            .add_system_to_stage(bevy_app::CoreStage::PreUpdate, process_events);
     }
 }

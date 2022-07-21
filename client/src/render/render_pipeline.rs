@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use super::{bind_group::BindGroup, MainRenderer};
+use std::sync::Arc;
 
 pub struct RenderPipeline {
     pub pipeline: wgpu::RenderPipeline,

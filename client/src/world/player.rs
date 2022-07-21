@@ -1,19 +1,14 @@
+use super::{PhysicsBody, WorldPosition, WorldRotation};
+use crate::{camera::Camera, input::Input, window::Window};
 use bevy_ecs::prelude::*;
 use winit::event::VirtualKeyCode;
-
-use crate::{
-    camera::Camera,
-    input::Input,
-    physics::{PhysicsBody, Position, Rotation},
-    window::Window,
-};
 
 #[derive(Component)]
 pub struct Player;
 
-pub fn player_movement_system(
+pub fn player_movement(
     input: Res<Input>,
-    mut query: Query<(&mut PhysicsBody, &mut Rotation, With<Player>)>,
+    mut query: Query<(&mut PhysicsBody, &mut WorldRotation, With<Player>)>,
 ) {
     let (mut body, mut rotation, _) = query.single_mut();
 
@@ -23,42 +18,45 @@ pub fn player_movement_system(
 
     // Only in the xz plane
     let yaw = rotation.x.to_radians();
-    let front = glam::vec3(yaw.cos(), 0.0, yaw.sin()).normalize();
-    let right = front.cross(glam::Vec3::Y);
+    let front = glam::vec3(yaw.cos(), 0.0, yaw.sin());
+    let left = front.cross(glam::Vec3::Y);
+    let mut force = glam::Vec3::ZERO;
 
+    // xz plane movement
     if input.is_key_pressed(VirtualKeyCode::W) {
-        body.force += front;
+        force += front;
     }
     if input.is_key_pressed(VirtualKeyCode::S) {
-        body.force -= front;
-    }
-    if input.is_key_pressed(VirtualKeyCode::D) {
-        body.force -= right;
+        force -= front;
     }
     if input.is_key_pressed(VirtualKeyCode::A) {
-        body.force += right;
+        force += left;
+    }
+    if input.is_key_pressed(VirtualKeyCode::D) {
+        force -= left;
     }
 
+    // y movement
     if input.is_key_pressed(VirtualKeyCode::Space) {
-        body.force += glam::Vec3::Y;
+        force += glam::Vec3::Y;
     }
     if input.is_key_pressed(VirtualKeyCode::LShift) {
-        body.force -= glam::Vec3::Y;
+        force -= glam::Vec3::Y;
     }
 
     const SPEED: f32 = 2.0;
-    body.force = body.force.normalize_or_zero() * SPEED;
+    body.force = force.normalize_or_zero() * SPEED;
 }
 
-pub fn camera_update_system(
+pub fn camera_update(
     mut camera: ResMut<Camera>,
-    query: Query<(&Position, &Rotation, With<Player>)>,
+    query: Query<(&WorldPosition, &WorldRotation, With<Player>)>,
 ) {
     let (position, rotation, _) = query.single();
     camera.update(position, rotation);
 }
 
-pub fn mouse_lock_system(mut state: ResMut<Window>, input: Res<Input>) {
+pub fn mouse_lock(mut state: ResMut<Window>, input: Res<Input>) {
     if input.is_key_just_pressed(VirtualKeyCode::Escape) {
         let locked = state.mouse_locked();
         state.set_mouse_lock(!locked);

@@ -60,12 +60,13 @@ pub struct ChunkRenderer {
     render_pipeline: RenderPipeline,
 }
 
-impl ChunkRenderer {
-    pub fn new(renderer: &MainRenderer) -> Self {
+impl FromWorld for ChunkRenderer {
+    fn from_world(world: &mut World) -> Self {
+        let renderer = world.resource::<MainRenderer>();
         let device = &renderer.device;
 
         let diffuse_image = image::load_from_memory(include_bytes!("dirt.png")).unwrap();
-        let diffuse_texture = Texture::new(renderer, &diffuse_image);
+        let diffuse_texture = Texture::new(&renderer, &diffuse_image);
 
         let texture_bind_group = BindGroup::new(
             device,
@@ -100,7 +101,7 @@ impl ChunkRenderer {
         });
 
         let render_pipeline = RenderPipeline::new(
-            renderer,
+            &renderer,
             wgpu::include_wgsl!("chunk.wgsl"),
             &[
                 renderer.global_bind_group.clone(),
@@ -117,7 +118,7 @@ impl ChunkRenderer {
     }
 }
 
-pub fn chunk_render_system(mut renderer: ResMut<MainRenderer>, chunk_renderer: Res<ChunkRenderer>) {
+pub fn chunk_render(mut renderer: ResMut<MainRenderer>, chunk_renderer: Res<ChunkRenderer>) {
     if let Some(mut render_pass) = renderer.begin_render_pass(&chunk_renderer.render_pipeline) {
         render_pass.set_vertex_buffer(0, chunk_renderer.vertex_buffer.slice(..));
         render_pass.set_index_buffer(

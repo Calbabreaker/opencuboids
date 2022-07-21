@@ -1,4 +1,4 @@
-use crate::physics::{Position, Rotation};
+use crate::world::{WorldPosition, WorldRotation};
 
 pub struct Camera {
     view_projection: glam::Mat4,
@@ -8,19 +8,21 @@ pub struct Camera {
     aspect_ratio: f32,
 }
 
-impl Camera {
-    pub fn new(fov_radians: f32, near: f32, far: f32) -> Self {
+impl Default for Camera {
+    fn default() -> Self {
         Self {
             view_projection: glam::Mat4::IDENTITY,
-            fov_radians,
-            near,
-            far,
+            fov_radians: f32::to_radians(60.0),
+            near: 0.01,
+            far: 1000.0,
             aspect_ratio: 0.0,
         }
     }
+}
 
+impl Camera {
     // Updates the view projection matrix for later use for rendering
-    pub fn update(&mut self, position: &Position, rotation: &Rotation) {
+    pub fn update(&mut self, position: &WorldPosition, rotation: &WorldRotation) {
         let yaw = rotation.x.to_radians();
         let pitch = rotation.y.to_radians();
         let direction = glam::vec3(
@@ -30,7 +32,7 @@ impl Camera {
         );
         let front = direction.normalize();
 
-        let view = glam::Mat4::look_at_lh(position.vector, position.vector + front, glam::Vec3::Y);
+        let view = glam::Mat4::look_at_lh(position.0, position.0 + front, glam::Vec3::Y);
         self.view_projection = self.get_projection() * view;
     }
 

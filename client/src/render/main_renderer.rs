@@ -1,7 +1,9 @@
-use std::sync::Arc;
-
-use crate::{camera::Camera, window::Window};
+use crate::{
+    camera::Camera,
+    window::{Window, WindowResize},
+};
 use bevy_ecs::prelude::*;
+use std::sync::Arc;
 
 use super::{
     bind_group::{BindGroup, BindGroupEntry},
@@ -19,7 +21,6 @@ pub struct MainRenderer {
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
-    pub size: winit::dpi::PhysicalSize<u32>,
     pub global_bind_group: Arc<BindGroup>,
     global_uniform_buffer: wgpu::Buffer,
     encoder: Option<wgpu::CommandEncoder>,
@@ -29,7 +30,9 @@ pub struct MainRenderer {
 
 impl MainRenderer {
     pub async fn new(window: &Window) -> Self {
-        let instance = wgpu::Instance::new(wgpu::Backends::all());
+        // Set the WGPU_BACKEND env var as a comma seperated list of specific backend(s) to use
+        let backends = wgpu::util::backend_bits_from_env().unwrap_or(wgpu::Backends::all());
+        let instance = wgpu::Instance::new(backends);
         let surface = unsafe { instance.create_surface(&window.winit_window) };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -65,7 +68,7 @@ impl MainRenderer {
 
         let global_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
-            size: std::mem::size_of::<GlobalUniform>() as wgpu::BufferAddress,
+            size: std::mem::size_of::<GlobalUniform>() as u64,
             mapped_at_creation: false,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
@@ -88,7 +91,6 @@ impl MainRenderer {
             device,
             queue,
             config,
-            size,
             global_bind_group: Arc::new(global_bind_group),
             global_uniform_buffer,
             encoder: None,
@@ -98,38 +100,12 @@ impl MainRenderer {
     }
 
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
-        self.size = size;
         self.config.width = size.width;
         self.config.height = size.height;
-        self.output = None;
-        self.view = None;
         self.surface.configure(&self.device, &self.config);
     }
 
-    // Creates the output texture and encoder for rendering
-    fn prepare_render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_texture()?;
-        self.view = Some(
-            output
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor::default()),
-        );
-        self.encoder = Some(
-            self.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
-        );
-        self.output = Some(output);
-        Ok(())
-    }
-
-    fn present_render(&mut self) -> Option<()> {
-        self.queue
-            .submit(std::iter::once(self.encoder.take()?.finish()));
-        self.output.take()?.present();
-        self.view = None;
-        Some(())
-    }
-
+    // Every render system should call this to start rendering
     pub fn begin_render_pass<'a>(
         &'a mut self,
         render_pipeline: &'a RenderPipeline,
@@ -160,13 +136,33 @@ impl MainRenderer {
 
         Some(render_pass)
     }
+
+    // Creates the output texture and encoder for rendering
+    fn prepare_render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        let output = self.surface.get_current_texture()?;
+        self.view = Some(
+            output
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor::default()),
+        );
+        self.encoder = Some(
+            self.device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
+        );
+        self.output = Some(output);
+        Ok(())
+    }
+
+    fn present_render(&mut self) -> Option<()> {
+        self.queue
+            .submit(std::iter::once(self.encoder.take()?.finish()));
+        self.output.take()?.present();
+        self.view = None;
+        Some(())
+    }
 }
 
-pub fn pre_render_system(
-    mut renderer: ResMut<MainRenderer>,
-    camera: Res<Camera>,
-    mut viewport_resize_event: EventWriter<ViewportResizeEvent>,
-) {
+pub fn pre_render(mut renderer: ResMut<MainRenderer>, window: Res<Window>, camera: Res<Camera>) {
     // Write the global uniform
     renderer.queue.write_buffer(
         &renderer.global_uniform_buffer,
@@ -177,29 +173,24 @@ pub fn pre_render_system(
     );
 
     match renderer.prepare_render() {
-        Err(wgpu::SurfaceError::Lost) => {
-            viewport_resize_event.send(ViewportResizeEvent(renderer.size));
-        }
+        Err(wgpu::SurfaceError::Lost) => renderer.resize(window.size()),
         Err(wgpu::SurfaceError::OutOfMemory) => panic!("GPU out of memory"),
         Err(e) => eprintln!("{:?}", e),
         Ok(_) => (),
     };
 }
 
-pub fn post_render_system(mut renderer: ResMut<MainRenderer>) {
+pub fn post_render(mut renderer: ResMut<MainRenderer>) {
     renderer.present_render();
 }
 
-pub struct ViewportResizeEvent(pub winit::dpi::PhysicalSize<u32>);
-
-pub fn viewport_resize(
+pub fn on_resize(
     mut renderer: ResMut<MainRenderer>,
     mut camera: ResMut<Camera>,
-    mut viewport_resize_event: EventReader<ViewportResizeEvent>,
+    mut viewport_resize_event: EventReader<WindowResize>,
 ) {
     for event in viewport_resize_event.iter() {
-        let size = event.0;
-        renderer.resize(size);
-        camera.resize(size.width, size.height);
+        renderer.resize(event.size);
+        camera.resize(event.size.width, event.size.height);
     }
 }

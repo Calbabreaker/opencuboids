@@ -32,29 +32,12 @@ impl Time {
     }
 }
 
-#[derive(Component, Default)]
-pub struct Position {
-    pub vector: glam::Vec3,
-}
+#[derive(Default)]
+pub struct TimePlugin;
 
-#[derive(Component, Default)]
-pub struct Rotation {
-    pub x: f32,
-    pub y: f32,
-}
-
-#[derive(Component, Default)]
-pub struct PhysicsBody {
-    pub velocity: glam::Vec3,
-    pub force: glam::Vec3,
-}
-
-pub fn physics_system(time: Res<Time>, mut query: Query<(&mut Position, &mut PhysicsBody)>) {
-    for (mut position, mut body) in query.iter_mut() {
-        const FRICTION: f32 = 20.0;
-        let friction_force = (body.velocity * FRICTION) * time.delta_seconds;
-        body.velocity = body.velocity + body.force - friction_force;
-        position.vector += body.velocity * time.delta_seconds;
-        body.force = glam::Vec3::ZERO;
+impl bevy_app::Plugin for TimePlugin {
+    fn build(&self, app: &mut bevy_app::App) {
+        app.init_resource::<Time>()
+            .add_system_to_stage(bevy_app::CoreStage::PreUpdate, Time::update_system);
     }
 }
