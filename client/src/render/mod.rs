@@ -7,6 +7,7 @@ use self::{
 use bevy_ecs::prelude::*;
 
 mod bind_group;
+mod buffer;
 mod chunk_renderer;
 mod main_renderer;
 mod render_pipeline;

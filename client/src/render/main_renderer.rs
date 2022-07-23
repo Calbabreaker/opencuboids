@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use super::{
     bind_group::{BindGroup, BindGroupEntry},
+    buffer::DynamicBuffer,
     render_pipeline::RenderPipeline,
 };
 
@@ -22,7 +23,7 @@ pub struct MainRenderer {
     pub config: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
     pub global_bind_group: Arc<BindGroup>,
-    global_uniform_buffer: wgpu::Buffer,
+    global_uniform_buffer: DynamicBuffer<GlobalUniform>,
     encoder: Option<wgpu::CommandEncoder>,
     view: Option<wgpu::TextureView>,
     output: Option<wgpu::SurfaceTexture>,
@@ -66,12 +67,11 @@ impl MainRenderer {
 
         surface.configure(&device, &config);
 
-        let global_uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            size: std::mem::size_of::<GlobalUniform>() as u64,
-            mapped_at_creation: false,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
+        let global_uniform_buffer = DynamicBuffer::new(
+            &device,
+            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            1,
+        );
 
         let global_bind_group = BindGroup::new(
             &device,
@@ -82,7 +82,7 @@ impl MainRenderer {
                     has_dynamic_offset: false,
                     min_binding_size: None,
                 },
-                resource: global_uniform_buffer.as_entire_binding(),
+                resource: global_uniform_buffer.buf.as_entire_binding(),
             }],
         );
 
@@ -164,12 +164,11 @@ impl MainRenderer {
 
 pub fn pre_render(mut renderer: ResMut<MainRenderer>, window: Res<Window>, camera: Res<Camera>) {
     // Write the global uniform
-    renderer.queue.write_buffer(
-        &renderer.global_uniform_buffer,
-        0,
-        bytemuck::cast_slice(&[GlobalUniform {
+    renderer.global_uniform_buffer.update(
+        &renderer.queue,
+        &[GlobalUniform {
             view_projection: camera.get_view_projection(),
-        }]),
+        }],
     );
 
     match renderer.prepare_render() {

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use bevy_ecs::prelude::*;
-use wgpu::util::DeviceExt;
 
 use super::{
     bind_group::{BindGroup, BindGroupEntry},
+    buffer::Buffer,
     render_pipeline::RenderPipeline,
     texture::Texture,
     MainRenderer,
@@ -55,8 +55,8 @@ const INDICES: &[u16] = &[
 ];
 
 pub struct ChunkRenderer {
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    vertex_buffer: Buffer<Vertex>,
+    index_buffer: Buffer<u16>,
     render_pipeline: RenderPipeline,
 }
 
@@ -66,7 +66,7 @@ impl FromWorld for ChunkRenderer {
         let device = &renderer.device;
 
         let diffuse_image = image::load_from_memory(include_bytes!("dirt.png")).unwrap();
-        let diffuse_texture = Texture::new(&renderer, &diffuse_image);
+        let diffuse_texture = Texture::new(device, &renderer.queue, &diffuse_image);
 
         let texture_bind_group = BindGroup::new(
             device,
@@ -88,23 +88,14 @@ impl FromWorld for ChunkRenderer {
             ],
         );
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(QUAD_VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
+        let vertex_buffer = Buffer::new(&device, wgpu::BufferUsages::VERTEX, QUAD_VERTICES);
+        let index_buffer = Buffer::new(&device, wgpu::BufferUsages::INDEX, INDICES);
 
         let render_pipeline = RenderPipeline::new(
             &renderer,
             wgpu::include_wgsl!("chunk.wgsl"),
             &[
-                renderer.global_bind_group.clone(),
+                Arc::clone(&renderer.global_bind_group),
                 Arc::new(texture_bind_group),
             ],
             &[Vertex::LAYOUT],
@@ -120,9 +111,9 @@ impl FromWorld for ChunkRenderer {
 
 pub fn chunk_render(mut renderer: ResMut<MainRenderer>, chunk_renderer: Res<ChunkRenderer>) {
     if let Some(mut render_pass) = renderer.begin_render_pass(&chunk_renderer.render_pipeline) {
-        render_pass.set_vertex_buffer(0, chunk_renderer.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(0, chunk_renderer.vertex_buffer.buf.slice(..));
         render_pass.set_index_buffer(
-            chunk_renderer.index_buffer.slice(..),
+            chunk_renderer.index_buffer.buf.slice(..),
             wgpu::IndexFormat::Uint16,
         );
         render_pass.draw_indexed(0..INDICES.len() as u32, 0, 0..1);
