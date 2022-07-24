@@ -12,7 +12,7 @@ pub fn player_movement(
 ) {
     let (mut body, mut rotation, _) = query.single_mut();
 
-    const SENSITIVITY: f32 = 0.2;
+    const SENSITIVITY: f32 = 0.3;
     rotation.x -= input.mouse_offset.x * SENSITIVITY;
     rotation.y = f32::clamp(rotation.y - input.mouse_offset.y * SENSITIVITY, -89.0, 89.0);
 

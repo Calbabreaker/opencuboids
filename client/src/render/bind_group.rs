@@ -1,7 +1,23 @@
+use super::buffer::DynamicBuffer;
+
 pub struct BindGroupEntry<'a> {
     pub ty: wgpu::BindingType,
     pub resource: wgpu::BindingResource<'a>,
     pub visibility: wgpu::ShaderStages,
+}
+
+impl<'a> BindGroupEntry<'a> {
+    pub fn new_buffer<T>(visibility: wgpu::ShaderStages, buffer: &'a DynamicBuffer<T>) -> Self {
+        Self {
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            visibility,
+            resource: buffer.buf.as_entire_binding(),
+        }
+    }
 }
 
 pub struct BindGroup {

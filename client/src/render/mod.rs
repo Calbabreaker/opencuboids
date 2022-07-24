@@ -1,8 +1,9 @@
 use crate::window::Window;
 
+pub use self::{chunk_renderer::ChunkMesh, main_renderer::MainRenderer};
 use self::{
     chunk_renderer::{chunk_render, ChunkRenderer},
-    main_renderer::{on_resize, post_render, pre_render, MainRenderer},
+    main_renderer::{on_resize, post_render, pre_render, RenderInstance},
 };
 use bevy_ecs::prelude::*;
 
@@ -29,6 +30,7 @@ impl bevy_app::Plugin for RenderPlugin {
 
         let window = app.world.resource::<Window>();
         app.insert_resource(pollster::block_on(MainRenderer::new(window)))
+            .init_resource::<Option<RenderInstance>>()
             .init_resource::<ChunkRenderer>()
             .add_stage_after(bevy_app::CoreStage::PostUpdate, "render", render_stage);
     }

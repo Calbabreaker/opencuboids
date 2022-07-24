@@ -9,13 +9,20 @@ mod time;
 mod window;
 mod world;
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, renderer: Res<render::MainRenderer>) {
     commands
         .spawn()
         .insert(world::WorldPosition(glam::vec3(0.0, 0.0, -2.0)))
         .insert(world::PhysicsBody::default())
         .insert(world::WorldRotation { x: 90.0, y: 0.0 })
         .insert(world::Player);
+
+    let mut mesh = render::ChunkMesh::new(&renderer.device);
+    mesh.regenerate(&renderer.queue);
+    commands
+        .spawn()
+        .insert(world::WorldPosition::default())
+        .insert(mesh);
 }
 
 fn main() {

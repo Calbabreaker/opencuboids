@@ -8,17 +8,16 @@ struct VertexOutput {
     @location(0) uvs: vec2<f32>,
 };
 
-struct GlobalUniform {
-    view_projection: mat4x4<f32>,
-};
-
 @group(0) @binding(0)
-var<uniform> global: GlobalUniform;
+var<uniform> view_projection: mat4x4<f32>;
+
+@group(0) @binding(1)
+var<uniform> position: vec4<f32>;
 
 @vertex
 fn vs_main(vertex: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.position = global.view_projection * vec4<f32>(vertex.position, 1.0);
+    out.position = view_projection * (vec4<f32>(vertex.position, 1.0) + position);
     out.uvs = vertex.uvs;
     return out;
 }

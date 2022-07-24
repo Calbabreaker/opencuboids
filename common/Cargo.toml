@@ -5,3 +5,4 @@ edition = "2021"
 authors = ["Calbabreaker <calbabreaker@gmail.com>"]
 
 [dependencies]
+glam = "0.21.2"
