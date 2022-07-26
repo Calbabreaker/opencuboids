@@ -1,9 +1,11 @@
 use bevy_app::App;
 use bevy_ecs::prelude::*;
 use camera::Camera;
+use opencuboids_common::DEFAULT_PORT;
 
 mod camera;
 mod input;
+mod network;
 mod render;
 mod time;
 mod window;
@@ -26,7 +28,9 @@ fn setup(mut commands: Commands, renderer: Res<render::MainRenderer>) {
 }
 
 fn main() {
-    env_logger::init();
+    opencuboids_common::log_setup();
+    std::thread::spawn(|| opencuboids_server::start(None));
+    std::thread::spawn(|| network::connect(&"0.0.0.0".to_string(), DEFAULT_PORT));
 
     App::new()
         .add_plugin(window::WindowPlugin)

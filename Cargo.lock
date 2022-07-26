@@ -1163,11 +1163,11 @@ dependencies = [
  "bevy_ecs",
  "bevy_utils",
  "bytemuck",
- "env_logger",
  "glam",
  "image",
  "log",
  "opencuboids-common",
+ "opencuboids-server",
  "pollster",
  "wgpu",
  "winit",
@@ -1177,7 +1177,17 @@ dependencies = [
 name = "opencuboids-common"
 version = "0.0.0"
 dependencies = [
+ "env_logger",
  "glam",
+ "log",
+]
+
+[[package]]
+name = "opencuboids-server"
+version = "0.0.0"
+dependencies = [
+ "log",
+ "opencuboids-common",
 ]
 
 [[package]]
