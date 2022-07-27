@@ -1,27 +1,20 @@
-use super::{bind_group::BindGroup, MainRenderer};
-use std::sync::Arc;
-
 pub struct RenderPipeline {
     pub pipeline: wgpu::RenderPipeline,
-    pub bind_groups: Vec<Arc<BindGroup>>,
 }
 
 impl RenderPipeline {
     pub fn new(
-        renderer: &MainRenderer,
+        device: &wgpu::Device,
         shader: wgpu::ShaderModuleDescriptor,
-        bind_groups: &[Arc<BindGroup>],
+        bind_group_layouts: &[&wgpu::BindGroupLayout],
         vertex_buffer_layouts: &[wgpu::VertexBufferLayout],
+        color_format: wgpu::TextureFormat,
+        depth_format: Option<wgpu::TextureFormat>,
     ) -> Self {
-        let device = &renderer.device;
-
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: None,
-                bind_group_layouts: &bind_groups
-                    .iter()
-                    .map(|bind_group| &bind_group.layout)
-                    .collect::<Vec<_>>(),
+                bind_group_layouts,
                 push_constant_ranges: &[],
             });
 
@@ -38,7 +31,7 @@ impl RenderPipeline {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: renderer.config.format,
+                    format: color_format,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
@@ -52,7 +45,13 @@ impl RenderPipeline {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: depth_format.map(|format| wgpu::DepthStencilState {
+                format,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multiview: None,
             multisample: wgpu::MultisampleState {
                 count: 1,
@@ -63,7 +62,6 @@ impl RenderPipeline {
 
         Self {
             pipeline: render_pipeline,
-            bind_groups: bind_groups.to_vec(),
         }
     }
 }

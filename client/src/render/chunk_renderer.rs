@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bevy_ecs::prelude::*;
 use opencuboids_common::{CHUNK_SIZE, CHUNK_VOLUME};
 
@@ -112,6 +110,7 @@ impl ChunkMesh {
 pub struct ChunkRenderer {
     index_buffer: Buffer<u16>,
     render_pipeline: RenderPipeline,
+    texture_bind_group: BindGroup,
 }
 
 impl FromWorld for ChunkRenderer {
@@ -145,18 +144,21 @@ impl FromWorld for ChunkRenderer {
         let index_buffer = new_buffer_quad_index(&device, MAX_QUADS);
 
         let render_pipeline = RenderPipeline::new(
-            &renderer,
+            &device,
             wgpu::include_wgsl!("chunk.wgsl"),
             &[
-                Arc::clone(&renderer.global_bind_group),
-                Arc::new(texture_bind_group),
+                &renderer.global_bind_group.layout,
+                &texture_bind_group.layout,
             ],
             &[Vertex::LAYOUT],
+            renderer.config.format,
+            Some(renderer.depth_texture.format),
         );
 
         Self {
             render_pipeline,
             index_buffer,
+            texture_bind_group,
         }
     }
 }
@@ -168,7 +170,12 @@ pub fn chunk_render(
     query: Query<(&WorldPosition, &ChunkMesh)>,
 ) {
     if let Some(instance) = render_instance.as_mut() {
-        let mut render_pass = instance.begin_render_pass(&chunk_renderer.render_pipeline);
+        let mut render_pass = instance.begin_render_pass(Some(&renderer.depth_texture.view));
+
+        render_pass.set_pipeline(&chunk_renderer.render_pipeline.pipeline);
+        render_pass.set_bind_group(0, &renderer.global_bind_group.group, &[]);
+        render_pass.set_bind_group(1, &chunk_renderer.texture_bind_group.group, &[]);
+
         render_pass.set_index_buffer(
             chunk_renderer.index_buffer.buf.slice(..),
             wgpu::IndexFormat::Uint16,

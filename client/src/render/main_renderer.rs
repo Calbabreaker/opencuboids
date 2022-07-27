@@ -8,7 +8,7 @@ use std::sync::Arc;
 use super::{
     bind_group::{BindGroup, BindGroupEntry},
     buffer::DynamicBuffer,
-    render_pipeline::RenderPipeline,
+    texture::Texture,
 };
 
 pub struct MainRenderer {
@@ -16,10 +16,11 @@ pub struct MainRenderer {
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
-    pub global_bind_group: Arc<BindGroup>,
+    pub global_bind_group: BindGroup,
     pub position_buffer: DynamicBuffer<glam::Vec4>,
     view_projection_buffer: DynamicBuffer<glam::Mat4>,
     pub instance: Option<Arc<RenderInstance>>,
+    pub depth_texture: Texture,
 }
 
 impl MainRenderer {
@@ -73,11 +74,12 @@ impl MainRenderer {
         );
 
         Self {
+            depth_texture: Texture::new_depth(&device, &config),
             surface,
             device,
             queue,
             config,
-            global_bind_group: Arc::new(global_bind_group),
+            global_bind_group,
             view_projection_buffer,
             position_buffer,
             instance: None,
@@ -88,6 +90,7 @@ impl MainRenderer {
         self.config.width = size.width;
         self.config.height = size.height;
         self.surface.configure(&self.device, &self.config);
+        self.depth_texture = Texture::new_depth(&self.device, &self.config);
     }
 }
 
@@ -118,9 +121,9 @@ impl RenderInstance {
     // Every render system should call this to start rendering
     pub fn begin_render_pass<'a>(
         &'a mut self,
-        render_pipeline: &'a RenderPipeline,
+        depth_texture_view: Option<&'a wgpu::TextureView>,
     ) -> wgpu::RenderPass {
-        let mut render_pass = self.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        self.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &self.view,
@@ -135,15 +138,17 @@ impl RenderInstance {
                     store: true,
                 },
             })],
-            depth_stencil_attachment: None,
-        });
-
-        render_pass.set_pipeline(&render_pipeline.pipeline);
-        for (i, bind_group) in render_pipeline.bind_groups.iter().enumerate() {
-            render_pass.set_bind_group(i as u32, &bind_group.group, &[]);
-        }
-
-        render_pass
+            depth_stencil_attachment: depth_texture_view.map(|view| {
+                wgpu::RenderPassDepthStencilAttachment {
+                    view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }
+            }),
+        })
     }
 }
 
