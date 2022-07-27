@@ -20,13 +20,14 @@ const MAX_QUADS: usize = CHUNK_VOLUME / 2 * 6;
 struct Vertex {
     position: glam::Vec3,
     uvs: glam::Vec2,
+    light_level: f32,
 }
 
 impl Vertex {
     const LAYOUT: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
         array_stride: std::mem::size_of::<Vertex>() as u64,
         step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2],
+        attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32],
     };
 }
 
@@ -59,6 +60,9 @@ const QUAD_UVS: &[glam::Vec2] = &[
     glam::vec2(1.0, 1.0),
     glam::vec2(0.0, 1.0),
 ];
+
+/// Uses a direction index to index
+const LIGHT_LEVELS: &[f32] = &[0.8, 0.8, 0.6, 0.6, 1.0, 0.4];
 
 #[derive(Component)]
 pub struct ChunkMesh {
@@ -102,6 +106,7 @@ impl ChunkMesh {
             self.verticies.push(Vertex {
                 position: vertex + block_pos,
                 uvs: QUAD_UVS[i],
+                light_level: LIGHT_LEVELS[direction],
             });
         }
     }
