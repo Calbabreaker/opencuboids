@@ -44,7 +44,7 @@ pub fn player_movement(
         force -= glam::Vec3::Y;
     }
 
-    const SPEED: f32 = 2.0;
+    const SPEED: f32 = 5.0;
     body.force = force.normalize_or_zero() * SPEED;
 }
 

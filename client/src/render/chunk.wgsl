@@ -10,16 +10,19 @@ struct VertexOutput {
     @location(1) light_level: f32,
 };
 
-@group(0) @binding(0)
-var<uniform> view_projection: mat4x4<f32>;
+struct GlobalUniform {
+    view_projection: mat4x4<f32>,
+}
 
-@group(0) @binding(1)
-var<uniform> position: vec4<f32>;
+@group(0) @binding(0)
+var<uniform> global: GlobalUniform;
+
+var<push_constant> block_offset: vec3<f32>;
 
 @vertex
 fn vs_main(vertex: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.position = view_projection * (vec4<f32>(vertex.position, 1.0) + position);
+    out.position = global.view_projection * vec4<f32>(vertex.position + block_offset, 1.0);
     out.uvs = vertex.uvs;
     out.light_level = vertex.light_level;
     return out;

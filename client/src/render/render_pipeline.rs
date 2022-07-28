@@ -10,12 +10,13 @@ impl RenderPipeline {
         vertex_buffer_layouts: &[wgpu::VertexBufferLayout],
         color_format: wgpu::TextureFormat,
         depth_format: Option<wgpu::TextureFormat>,
+        push_constant_ranges: &[wgpu::PushConstantRange],
     ) -> Self {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: None,
                 bind_group_layouts,
-                push_constant_ranges: &[],
+                push_constant_ranges,
             });
 
         let shader = device.create_shader_module(shader);

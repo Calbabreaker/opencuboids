@@ -11,14 +11,19 @@ use super::{
     texture::Texture,
 };
 
+#[repr(C)]
+#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct GlobalUniform {
+    view_projection: glam::Mat4,
+}
+
 pub struct MainRenderer {
     surface: wgpu::Surface,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
     pub global_bind_group: BindGroup,
-    pub position_buffer: DynamicBuffer<glam::Vec4>,
-    view_projection_buffer: DynamicBuffer<glam::Mat4>,
+    global_uniform_buffer: DynamicBuffer<GlobalUniform>,
     pub instance: Option<Arc<RenderInstance>>,
     pub depth_texture: Texture,
 }
@@ -42,8 +47,11 @@ impl MainRenderer {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
+                    features: wgpu::Features::PUSH_CONSTANTS,
+                    limits: wgpu::Limits {
+                        max_push_constant_size: 12,
+                        ..Default::default()
+                    },
                 },
                 None,
             )
@@ -62,15 +70,14 @@ impl MainRenderer {
         surface.configure(&device, &config);
 
         let usage = wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST;
-        let view_projection_buffer = DynamicBuffer::new(&device, usage, 1);
-        let position_buffer = DynamicBuffer::new(&device, usage, 1);
+        let global_uniform_buffer = DynamicBuffer::new(&device, usage, 1);
 
         let global_bind_group = BindGroup::new(
             &device,
-            &[
-                BindGroupEntry::new_buffer(wgpu::ShaderStages::VERTEX, &view_projection_buffer),
-                BindGroupEntry::new_buffer(wgpu::ShaderStages::VERTEX, &position_buffer),
-            ],
+            &[BindGroupEntry::new_buffer(
+                wgpu::ShaderStages::VERTEX,
+                &global_uniform_buffer,
+            )],
         );
 
         Self {
@@ -80,8 +87,7 @@ impl MainRenderer {
             queue,
             config,
             global_bind_group,
-            view_projection_buffer,
-            position_buffer,
+            global_uniform_buffer,
             instance: None,
         }
     }
@@ -158,9 +164,12 @@ pub fn pre_render(
     window: Res<Window>,
     camera: Res<Camera>,
 ) {
-    renderer
-        .view_projection_buffer
-        .update(&renderer.queue, &[camera.get_view_projection()]);
+    renderer.global_uniform_buffer.update(
+        &renderer.queue,
+        &[GlobalUniform {
+            view_projection: camera.get_view_projection(),
+        }],
+    );
 
     match RenderInstance::new(&renderer.device, &renderer.surface) {
         Err(wgpu::SurfaceError::Lost) => renderer.resize(window.size()),
