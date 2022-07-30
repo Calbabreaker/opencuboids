@@ -21,8 +21,11 @@ fn bind<A: ToSocketAddrs>(address: A) -> std::io::Result<()> {
         let addr = stream.peer_addr()?;
         log::info!("Client connected at {}", addr);
         std::thread::spawn(move || {
-            handle_client(stream).unwrap();
-            log::info!("Client disconnected at {}", addr);
+            if handle_client(stream).is_err() {
+                log::info!("Client disconnected unexpectedly at {}", addr);
+            } else {
+                log::info!("Client disconnected at {}", addr);
+            }
         });
     }
 

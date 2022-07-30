@@ -174,7 +174,7 @@ pub fn pre_render(
     match RenderInstance::new(&renderer.device, &renderer.surface) {
         Err(wgpu::SurfaceError::Lost) => renderer.resize(window.size()),
         Err(wgpu::SurfaceError::OutOfMemory) => panic!("GPU out of memory"),
-        Err(e) => eprintln!("{:?}", e),
+        Err(e) => log::error!("{:?}", e),
         Ok(instance) => *render_instance = Some(instance),
     };
 }
