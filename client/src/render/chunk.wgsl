@@ -1,9 +1,3 @@
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) uvs: vec2<f32>,
-    @location(2) light_level: f32,
-};
-
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uvs: vec2<f32>,
@@ -19,12 +13,31 @@ var<uniform> global: GlobalUniform;
 
 var<push_constant> block_offset: vec3<f32>;
 
+var<private> uvs: array<vec2<f32>, 4> = array<vec2<f32>, 4>(
+    vec2<f32>(0.0, 0.0),
+    vec2<f32>(1.0, 0.0),
+    vec2<f32>(1.0, 1.0),
+    vec2<f32>(0.0, 1.0),
+);
+
+var<private> light_levels: array<f32, 6> = array<f32, 6>(0.8, 0.8, 0.6, 0.6, 1.0, 0.4);
+
 @vertex
-fn vs_main(vertex: VertexInput) -> VertexOutput {
+fn vs_main(@location(0) vertex: u32) -> VertexOutput {
     var out: VertexOutput;
-    out.position = global.view_projection * vec4<f32>(vertex.position + block_offset, 1.0);
-    out.uvs = vertex.uvs;
-    out.light_level = vertex.light_level;
+
+    // Unpack vertex data
+    let x = vertex & 0x1fu;
+    let y = (vertex & 0x3e0u) >> 5u;
+    let z = (vertex & 0x7c00u) >> 10u;
+    let position = vec3<f32>(f32(x), f32(y), f32(z));
+    out.position = global.view_projection * vec4<f32>(position + block_offset, 1.0);
+
+    let uv_index = (vertex & 0x18000u) >> 15u;
+    let dir_index = (vertex & 0xe0000u) >> 17u;
+
+    out.uvs = uvs[uv_index];
+    out.light_level = light_levels[dir_index];
     return out;
 }
 

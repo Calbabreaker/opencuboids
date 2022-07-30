@@ -1,9 +1,11 @@
 use bevy_ecs::prelude::*;
-use opencuboids_common::{BlockID, Chunk, CHUNK_SIZE};
+use opencuboids_common::{in_bounds, loop_3d_vec, BlockID, Chunk, CHUNK_SIZE};
 
 use crate::render::{ChunkMesh, MainRenderer};
 
 use super::{Player, WorldPosition};
+
+const RENDER_DISTANCE: i32 = 1;
 
 #[derive(Default)]
 pub struct ChunkManager {
@@ -37,49 +39,56 @@ pub fn chunk_update(
         .chunk_pos_center
         .map_or(true, |pos| player_chunk_pos != pos)
     {
-        chunk_manager.chunk_pos_center = Some(player_chunk_pos);
-        chunk_manager.chunk_map.clear();
+        // Get chunks 1 more chunk pos than renderered to handle chunk neighbours on the edges
+        let start_pos = player_chunk_pos - RENDER_DISTANCE;
+        let end_pos = player_chunk_pos + RENDER_DISTANCE;
 
-        // Update chunks
-        let mut mesh_iter = mesh_query.iter_mut();
-        const RENDER_DISTANCE: usize = 3;
-        for i in 0..RENDER_DISTANCE {
-            let start_pos = player_chunk_pos - i as i32;
-            let end_pos = player_chunk_pos + i as i32;
+        // Remove chunks not in the new bounds
+        chunk_manager
+            .chunk_map
+            .drain_filter(|pos, _| in_bounds(*pos, player_chunk_pos, RENDER_DISTANCE));
 
-            for x in start_pos.x..=end_pos.x {
-                for z in start_pos.z..=end_pos.z {
-                    for y in start_pos.y..=end_pos.y {
-                        let chunk_pos = glam::ivec3(x, y, z);
-                        let mut chunk = Chunk::new(chunk_pos);
-                        gen_blocks(&mut chunk, chunk_pos);
-                        chunk_manager.chunk_map.insert(chunk_pos, chunk);
-                    }
-                }
+        // Add new chunks
+        loop_3d_vec!(start_pos, end_pos, |chunk_pos| {
+            if !chunk_manager.chunk_map.contains_key(&chunk_pos) {
+                let mut chunk = Chunk::new();
+                gen_blocks(&mut chunk, chunk_pos);
+                chunk_manager.chunk_map.insert(chunk_pos, chunk);
             }
+        });
 
-            for (chunk_pos, chunk) in chunk_manager.chunk_map.iter() {
-                // Get a chunk mesh from the world to regenerate its mesh
-                // If no more exist then create a new one
-                let block_pos = chunk_pos.as_vec3() * CHUNK_SIZE as f32;
-                if let Some((_, mut position, mut mesh, _)) = mesh_iter.next() {
-                    position.0 = block_pos;
-                    mesh.regenerate(&renderer.queue, chunk, &chunk_manager);
-                } else {
-                    let mut mesh = ChunkMesh::new(&renderer.device);
-                    mesh.regenerate(&renderer.queue, chunk, &chunk_manager);
+        // Loop around in a spiral adding chunks meshes
+        for i in 0..RENDER_DISTANCE {
+            let start_pos = player_chunk_pos - i;
+            let end_pos = player_chunk_pos + i;
+            loop_3d_vec!(start_pos, end_pos, |chunk_pos: glam::IVec3| {
+                // Only create the mesh if it's outside the previous center pos
+                if chunk_manager.chunk_pos_center.map_or(true, |center_pos| {
+                    !in_bounds(chunk_pos, center_pos, RENDER_DISTANCE)
+                }) {
+                    let chunk = chunk_manager.chunk_map.get(&chunk_pos).unwrap();
+                    let block_pos = chunk_pos.as_vec3() * CHUNK_SIZE as f32;
                     commands
                         .spawn()
-                        .insert_bundle((WorldPosition(block_pos), mesh));
-                };
+                        .insert(WorldPosition(block_pos))
+                        .insert(ChunkMesh::new(
+                            &renderer.device,
+                            &chunk,
+                            chunk_pos,
+                            &chunk_manager,
+                        ));
+                }
+            });
+        }
+
+        // Remove any chunk meshes outside render distance
+        for (entity, _, mesh, _) in mesh_query.iter_mut() {
+            if !in_bounds(mesh.chunk_pos, player_chunk_pos, RENDER_DISTANCE) {
+                commands.entity(entity).despawn();
             }
         }
 
-        log::info!("Gen {} chunks.", chunk_manager.chunk_map.len());
-        // Remove any remaning chunk meshes
-        for (entity, _, _, _) in mesh_iter {
-            commands.entity(entity).despawn();
-        }
+        chunk_manager.chunk_pos_center = Some(player_chunk_pos);
     }
 }
 

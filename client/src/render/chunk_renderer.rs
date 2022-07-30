@@ -1,11 +1,11 @@
 use bevy_ecs::prelude::*;
-use opencuboids_common::{Chunk, CHUNK_SIZE, CHUNK_VOLUME, DIRECTION_TO_VECTOR};
+use opencuboids_common::{loop_3d, Chunk, CHUNK_SIZE, CHUNK_VOLUME, DIRECTION_TO_VECTOR};
 
 use crate::world::{ChunkManager, WorldPosition};
 
 use super::{
     bind_group::{BindGroup, BindGroupEntry},
-    buffer::{new_buffer_quad_index, Buffer, DynamicBuffer},
+    buffer::{new_buffer_quad_index, Buffer},
     main_renderer::RenderInstance,
     render_pipeline::RenderPipeline,
     texture::Texture,
@@ -15,19 +15,19 @@ use super::{
 // Worst case scenario of chunk: 3D chessboard pattern
 const MAX_QUADS: usize = CHUNK_VOLUME / 2 * 6;
 
+/// Vertex is a packed 32-bit unsigned int containing all the vertex data
+///    x     y     z   uv dir
+/// |‾‾‾‾||‾‾‾‾||‾‾‾‾||‾||‾|
+/// 0000 0000 0000 0000 0000 0000 0000 0000  
 #[repr(C)]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: glam::Vec3,
-    uvs: glam::Vec2,
-    light_level: f32,
-}
+struct Vertex(u32);
 
 impl Vertex {
     const LAYOUT: wgpu::VertexBufferLayout<'static> = wgpu::VertexBufferLayout {
         array_stride: std::mem::size_of::<Vertex>() as u64,
         step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2 => Float32],
+        attributes: &wgpu::vertex_attr_array![0 => Uint32],
     };
 }
 
@@ -41,81 +41,71 @@ const CUBE_INDICES: &[usize] = &[
     0, 1, 5, 4, // Bottom
 ];
 
-const CUBE_VERTICES: &[glam::Vec3] = &[
+const CUBE_VERTICES: &[glam::UVec3] = &[
     // Top face
-    glam::vec3(0.0, 0.0, 0.0),
-    glam::vec3(1.0, 0.0, 0.0),
-    glam::vec3(1.0, 1.0, 0.0),
-    glam::vec3(0.0, 1.0, 0.0),
+    glam::uvec3(0, 0, 0),
+    glam::uvec3(1, 0, 0),
+    glam::uvec3(1, 1, 0),
+    glam::uvec3(0, 1, 0),
     // Bottom face
-    glam::vec3(0.0, 0.0, 1.0),
-    glam::vec3(1.0, 0.0, 1.0),
-    glam::vec3(1.0, 1.0, 1.0),
-    glam::vec3(0.0, 1.0, 1.0),
+    glam::uvec3(0, 0, 1),
+    glam::uvec3(1, 0, 1),
+    glam::uvec3(1, 1, 1),
+    glam::uvec3(0, 1, 1),
 ];
-
-const QUAD_UVS: &[glam::Vec2] = &[
-    glam::vec2(0.0, 0.0),
-    glam::vec2(1.0, 0.0),
-    glam::vec2(1.0, 1.0),
-    glam::vec2(0.0, 1.0),
-];
-
-/// Uses a direction index to index
-const LIGHT_LEVELS: &[f32] = &[0.8, 0.8, 0.6, 0.6, 1.0, 0.4];
 
 #[derive(Component)]
 pub struct ChunkMesh {
-    verticies: Vec<Vertex>,
-    vertex_buffer: DynamicBuffer<Vertex>,
+    vertex_buffer: Buffer<Vertex>,
+    pub chunk_pos: glam::IVec3,
 }
 
 impl ChunkMesh {
-    pub fn new(device: &wgpu::Device) -> Self {
-        Self {
-            verticies: Vec::with_capacity(MAX_QUADS * 4),
-            vertex_buffer: DynamicBuffer::new(
-                device,
-                wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                MAX_QUADS * 4,
-            ),
-        }
-    }
+    pub fn new(
+        device: &wgpu::Device,
+        chunk: &Chunk,
+        chunk_pos: glam::IVec3,
+        chunk_manager: &ChunkManager,
+    ) -> Self {
+        let mut verticies = [Vertex::default(); MAX_QUADS * 4];
+        let mut vertex_i = 0;
 
-    pub fn regenerate(&mut self, queue: &wgpu::Queue, chunk: &Chunk, chunk_manager: &ChunkManager) {
-        self.verticies.clear();
-        let chunk_block_pos = chunk.pos * CHUNK_SIZE as i32;
-        for x in 0..CHUNK_SIZE {
-            for y in 0..CHUNK_SIZE {
-                for z in 0..CHUNK_SIZE {
-                    let block_pos = glam::uvec3(x as u32, y as u32, z as u32);
-                    if chunk.get_block(block_pos) == 0 {
-                        continue;
-                    }
+        let chunk_block_pos = chunk_pos * CHUNK_SIZE as i32;
+        loop_3d!(0..CHUNK_SIZE as i32, |block_pos: glam::IVec3| {
+            if chunk.get_block(block_pos.as_uvec3()) == 0 {
+                return;
+            }
 
-                    for dir_index in 0..6 {
-                        let dir_vec = DIRECTION_TO_VECTOR[dir_index];
-                        let neighbour_pos = block_pos.as_ivec3() + dir_vec + chunk_block_pos;
-                        if chunk_manager.get_block(neighbour_pos) == 0 {
-                            self.add_face(block_pos, dir_index);
-                        }
+            for dir_index in 0..6 {
+                let dir_vec = DIRECTION_TO_VECTOR[dir_index];
+                let neighbour_pos = block_pos + dir_vec + chunk_block_pos;
+                if chunk_manager.get_block(neighbour_pos) == 0 {
+                    // Add face
+                    for i in 0..4 {
+                        let pos =
+                            CUBE_VERTICES[CUBE_INDICES[(dir_index * 4) + i]] + block_pos.as_uvec3();
+
+                        // Pack all vertex data
+                        let vertex = pos.x
+                            | pos.y << 5
+                            | pos.z << 10
+                            | (i as u32) << 15
+                            | (dir_index as u32) << 17;
+                        verticies[vertex_i] = Vertex(vertex);
+                        vertex_i += 1;
                     }
                 }
             }
-        }
+        });
+        log::info!("{}", vertex_i);
 
-        self.vertex_buffer.update(&queue, &self.verticies);
-    }
-
-    fn add_face(&mut self, block_pos: glam::UVec3, direction: usize) {
-        // Gen vertices
-        for i in 0..4 {
-            let vertex = CUBE_VERTICES[CUBE_INDICES[(direction * 4) + i]];
-            self.verticies.push(Vertex {
-                position: vertex + block_pos.as_vec3(),
-                uvs: QUAD_UVS[i],
-                light_level: LIGHT_LEVELS[direction],
-            });
+        Self {
+            vertex_buffer: Buffer::new(
+                &device,
+                wgpu::BufferUsages::VERTEX,
+                bytemuck::cast_slice(&verticies[0..vertex_i + 1]),
+            ),
+            chunk_pos,
         }
     }
 }
@@ -199,7 +189,7 @@ pub fn chunk_render(
         );
 
         for (postition, mesh) in query.iter() {
-            let index_count = mesh.verticies.len() / 4 * 6;
+            let index_count = mesh.vertex_buffer.len / 4 * 6;
             if index_count > 0 {
                 render_pass.set_vertex_buffer(0, mesh.vertex_buffer.buf.slice(..));
                 render_pass.set_push_constants(
