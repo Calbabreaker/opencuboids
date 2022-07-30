@@ -60,12 +60,12 @@ fn pos_to_index(block_pos: glam::UVec3) -> usize {
 
 pub fn in_bounds(chunk_pos: glam::IVec3, center: glam::IVec3, distance: i32) -> bool {
     let pos = chunk_pos - center;
-    pos.z >= 0
-        && pos.y >= 0
-        && pos.z >= 0
-        && pos.x <= distance
-        && pos.y <= distance
-        && pos.z <= distance
+    pos.x > -distance
+        && pos.y > -distance
+        && pos.z > -distance
+        && pos.x < distance
+        && pos.y < distance
+        && pos.z < distance
 }
 
 /// Uses a direction index

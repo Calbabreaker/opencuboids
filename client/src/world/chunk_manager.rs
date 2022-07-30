@@ -5,7 +5,7 @@ use crate::render::{ChunkMesh, MainRenderer};
 
 use super::{Player, WorldPosition};
 
-const RENDER_DISTANCE: i32 = 1;
+const RENDER_DISTANCE: i32 = 5;
 
 #[derive(Default)]
 pub struct ChunkManager {
@@ -16,11 +16,10 @@ pub struct ChunkManager {
 impl ChunkManager {
     pub fn get_block(&self, pos: glam::IVec3) -> BlockID {
         let chunk_pos = (pos.as_vec3() / CHUNK_SIZE as f32).floor().as_ivec3();
-        if let Some(chunk) = self.chunk_map.get(&chunk_pos) {
-            chunk.get_block(pos.as_uvec3() % CHUNK_SIZE as u32)
-        } else {
-            0
-        }
+        self.chunk_map
+            .get(&chunk_pos)
+            .unwrap()
+            .get_block(pos.as_uvec3() % CHUNK_SIZE as u32)
     }
 }
 
@@ -68,15 +67,13 @@ pub fn chunk_update(
                 }) {
                     let chunk = chunk_manager.chunk_map.get(&chunk_pos).unwrap();
                     let block_pos = chunk_pos.as_vec3() * CHUNK_SIZE as f32;
-                    commands
-                        .spawn()
-                        .insert(WorldPosition(block_pos))
-                        .insert(ChunkMesh::new(
-                            &renderer.device,
-                            &chunk,
-                            chunk_pos,
-                            &chunk_manager,
-                        ));
+                    let mesh = ChunkMesh::new(&renderer.device, &chunk, chunk_pos, &chunk_manager);
+                    if let Some(mesh) = mesh {
+                        commands
+                            .spawn()
+                            .insert(WorldPosition(block_pos))
+                            .insert(mesh);
+                    }
                 }
             });
         }

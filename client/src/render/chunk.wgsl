@@ -27,14 +27,14 @@ fn vs_main(@location(0) vertex: u32) -> VertexOutput {
     var out: VertexOutput;
 
     // Unpack vertex data
-    let x = vertex & 0x1fu;
-    let y = (vertex & 0x3e0u) >> 5u;
-    let z = (vertex & 0x7c00u) >> 10u;
+    let x = vertex & 0x3fu;
+    let y = (vertex & 0xfc0u) >> 6u;
+    let z = (vertex & 0x3f000u) >> 12u;
     let position = vec3<f32>(f32(x), f32(y), f32(z));
     out.position = global.view_projection * vec4<f32>(position + block_offset, 1.0);
 
-    let uv_index = (vertex & 0x18000u) >> 15u;
-    let dir_index = (vertex & 0xe0000u) >> 17u;
+    let uv_index = (vertex & 0xc0000u) >> 18u;
+    let dir_index = (vertex & 0x700000u) >> 20u;
 
     out.uvs = uvs[uv_index];
     out.light_level = light_levels[dir_index];

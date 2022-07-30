@@ -16,8 +16,8 @@ use super::{
 const MAX_QUADS: usize = CHUNK_VOLUME / 2 * 6;
 
 /// Vertex is a packed 32-bit unsigned int containing all the vertex data
-///    x     y     z   uv dir
-/// |‾‾‾‾||‾‾‾‾||‾‾‾‾||‾||‾|
+///    x      y      z    uv dir
+/// |‾‾‾‾‾||‾‾‾‾‾| |‾‾‾‾‾||‾||‾|
 /// 0000 0000 0000 0000 0000 0000 0000 0000  
 #[repr(C)]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -66,7 +66,7 @@ impl ChunkMesh {
         chunk: &Chunk,
         chunk_pos: glam::IVec3,
         chunk_manager: &ChunkManager,
-    ) -> Self {
+    ) -> Option<Self> {
         let mut verticies = [Vertex::default(); MAX_QUADS * 4];
         let mut vertex_i = 0;
 
@@ -85,27 +85,30 @@ impl ChunkMesh {
                         let pos =
                             CUBE_VERTICES[CUBE_INDICES[(dir_index * 4) + i]] + block_pos.as_uvec3();
 
-                        // Pack all vertex data
+                        // Pack vertex data
                         let vertex = pos.x
-                            | pos.y << 5
-                            | pos.z << 10
-                            | (i as u32) << 15
-                            | (dir_index as u32) << 17;
+                            | pos.y << 6
+                            | pos.z << 12
+                            | (i as u32) << 18
+                            | (dir_index as u32) << 20;
                         verticies[vertex_i] = Vertex(vertex);
                         vertex_i += 1;
                     }
                 }
             }
         });
-        log::info!("{}", vertex_i);
 
-        Self {
-            vertex_buffer: Buffer::new(
-                &device,
-                wgpu::BufferUsages::VERTEX,
-                bytemuck::cast_slice(&verticies[0..vertex_i + 1]),
-            ),
-            chunk_pos,
+        if vertex_i > 0 {
+            Some(Self {
+                vertex_buffer: Buffer::new(
+                    &device,
+                    wgpu::BufferUsages::VERTEX,
+                    bytemuck::cast_slice(&verticies[0..vertex_i + 1]),
+                ),
+                chunk_pos,
+            })
+        } else {
+            None
         }
     }
 }
@@ -190,16 +193,14 @@ pub fn chunk_render(
 
         for (postition, mesh) in query.iter() {
             let index_count = mesh.vertex_buffer.len / 4 * 6;
-            if index_count > 0 {
-                render_pass.set_vertex_buffer(0, mesh.vertex_buffer.buf.slice(..));
-                render_pass.set_push_constants(
-                    wgpu::ShaderStages::VERTEX,
-                    0,
-                    bytemuck::cast_slice(&[postition.0]),
-                );
+            render_pass.set_vertex_buffer(0, mesh.vertex_buffer.buf.slice(..));
+            render_pass.set_push_constants(
+                wgpu::ShaderStages::VERTEX,
+                0,
+                bytemuck::cast_slice(&[postition.0]),
+            );
 
-                render_pass.draw_indexed(0..index_count as u32, 0, 0..1);
-            }
+            render_pass.draw_indexed(0..index_count as u32, 0, 0..1);
         }
     }
 }
