@@ -1,5 +1,5 @@
-use super::{PhysicsBody, WorldPosition, WorldRotation};
-use crate::{camera::Camera, input::Input, window::Window};
+use super::{PhysicsBody, WorldTransform};
+use crate::{input::Input, window::Window};
 use bevy_ecs::prelude::*;
 use winit::event::VirtualKeyCode;
 
@@ -8,11 +8,12 @@ pub struct Player;
 
 pub fn player_movement(
     input: Res<Input>,
-    mut query: Query<(&mut PhysicsBody, &mut WorldRotation, With<Player>)>,
+    mut query: Query<(&mut PhysicsBody, &mut WorldTransform, With<Player>)>,
 ) {
-    let (mut body, mut rotation, _) = query.single_mut();
+    let (mut body, mut transform, _) = query.single_mut();
 
-    const SENSITIVITY: f32 = 0.2;
+    const SENSITIVITY: f32 = 0.1;
+    let mut rotation = &mut transform.rotation;
     rotation.x -= input.mouse_offset.x * SENSITIVITY;
     rotation.y = f32::clamp(rotation.y - input.mouse_offset.y * SENSITIVITY, -89.0, 89.0);
 
@@ -46,14 +47,6 @@ pub fn player_movement(
 
     const SPEED: f32 = 5.0;
     body.force = force.normalize_or_zero() * SPEED;
-}
-
-pub fn camera_update(
-    mut camera: ResMut<Camera>,
-    query: Query<(&WorldPosition, &WorldRotation, With<Player>)>,
-) {
-    let (position, rotation, _) = query.single();
-    camera.update(position, rotation);
 }
 
 pub fn mouse_lock(mut state: ResMut<Window>, input: Res<Input>) {

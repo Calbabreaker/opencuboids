@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use opencuboids_common::{loop_3d, Chunk, CHUNK_SIZE, CHUNK_VOLUME, DIRECTION_TO_VECTOR};
 
-use crate::world::{ChunkManager, WorldPosition};
+use crate::world::{ChunkManager, WorldTransform};
 
 use super::{
     bind_group::{BindGroup, BindGroupEntry},
@@ -177,7 +177,7 @@ pub fn chunk_render(
     renderer: Res<MainRenderer>,
     mut render_instance: ResMut<Option<RenderInstance>>,
     chunk_renderer: Res<ChunkRenderer>,
-    query: Query<(&WorldPosition, &ChunkMesh)>,
+    query: Query<(&WorldTransform, &ChunkMesh)>,
 ) {
     if let Some(instance) = render_instance.as_mut() {
         let mut render_pass = instance.begin_render_pass(Some(&renderer.depth_texture.view));
@@ -191,13 +191,13 @@ pub fn chunk_render(
             wgpu::IndexFormat::Uint16,
         );
 
-        for (postition, mesh) in query.iter() {
+        for (transform, mesh) in query.iter() {
             let index_count = mesh.vertex_buffer.len / 4 * 6;
             render_pass.set_vertex_buffer(0, mesh.vertex_buffer.buf.slice(..));
             render_pass.set_push_constants(
                 wgpu::ShaderStages::VERTEX,
                 0,
-                bytemuck::cast_slice(&[postition.0]),
+                bytemuck::cast_slice(&[transform.position]),
             );
 
             render_pass.draw_indexed(0..index_count as u32, 0, 0..1);

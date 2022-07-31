@@ -3,9 +3,9 @@ use opencuboids_common::{in_bounds, loop_3d_vec, BlockID, Chunk, CHUNK_SIZE};
 
 use crate::render::{ChunkMesh, MainRenderer};
 
-use super::{Player, WorldPosition};
+use super::{physics::WorldTransform, Player};
 
-const RENDER_DISTANCE: i32 = 5;
+const RENDER_DISTANCE: i32 = 2;
 
 #[derive(Default)]
 pub struct ChunkManager {
@@ -26,14 +26,16 @@ impl ChunkManager {
 pub fn chunk_update(
     mut chunk_manager: ResMut<ChunkManager>,
     renderer: Res<MainRenderer>,
-    player_query: Query<(&WorldPosition, With<Player>)>,
-    mut mesh_query: Query<(Entity, &mut WorldPosition, &mut ChunkMesh, Without<Player>)>,
+    player_query: Query<(&WorldTransform, With<Player>)>,
+    mut mesh_query: Query<(Entity, &mut WorldTransform, &mut ChunkMesh, Without<Player>)>,
     mut commands: Commands,
 ) {
-    let (player_pos, _) = player_query.single();
+    let (player_trans, _) = player_query.single();
 
     // If the player has moved into a different chunk
-    let player_chunk_pos = (player_pos.0 / CHUNK_SIZE as f32).floor().as_ivec3();
+    let player_chunk_pos = (player_trans.position / CHUNK_SIZE as f32)
+        .floor()
+        .as_ivec3();
     if chunk_manager
         .chunk_pos_center
         .map_or(true, |pos| player_chunk_pos != pos)
@@ -71,7 +73,10 @@ pub fn chunk_update(
                     if let Some(mesh) = mesh {
                         commands
                             .spawn()
-                            .insert(WorldPosition(block_pos))
+                            .insert(WorldTransform {
+                                position: block_pos,
+                                ..Default::default()
+                            })
                             .insert(mesh);
                     }
                 }

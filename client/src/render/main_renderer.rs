@@ -1,6 +1,7 @@
 use crate::{
     camera::Camera,
     window::{Window, WindowResize},
+    world::WorldTransform,
 };
 use bevy_ecs::prelude::*;
 use std::sync::Arc;
@@ -162,12 +163,13 @@ pub fn pre_render(
     mut renderer: ResMut<MainRenderer>,
     mut render_instance: ResMut<Option<RenderInstance>>,
     window: Res<Window>,
-    camera: Res<Camera>,
+    camera_query: Query<(&Camera, &WorldTransform)>,
 ) {
+    let (camera, transform) = camera_query.single();
     renderer.global_uniform_buffer.update(
         &renderer.queue,
         &[GlobalUniform {
-            view_projection: camera.get_view_projection(),
+            view_projection: camera.view_projection(*transform),
         }],
     );
 
@@ -190,11 +192,13 @@ pub fn post_render(
 
 pub fn on_resize(
     mut renderer: ResMut<MainRenderer>,
-    mut camera: ResMut<Camera>,
+    mut camera_query: Query<&mut Camera>,
     mut viewport_resize_event: EventReader<WindowResize>,
 ) {
     for event in viewport_resize_event.iter() {
         renderer.resize(event.size);
-        camera.resize(event.size.width, event.size.height);
+        for mut camera in camera_query.iter_mut() {
+            camera.resize(event.size.width, event.size.height);
+        }
     }
 }
