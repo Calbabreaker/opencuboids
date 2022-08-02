@@ -5,9 +5,9 @@ edition = "2021"
 authors = ["Calbabreaker <calbabreaker@gmail.com>"]
 
 [dependencies]
-bevy_app = "0.7.0"
-bevy_ecs = "0.7.0"
-bevy_utils = "0.7.0"
+bevy_app = "0.8.0"
+bevy_ecs = "0.8.0"
+bevy_utils = "0.8.0"
 bytemuck = { version = "1.10.0", features = ["derive"] }
 glam = { version = "0.21.2", features = ["bytemuck"] }
 image = { version = "0.24.2", default-features = false, features = ["png"] }

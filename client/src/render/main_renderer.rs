@@ -34,7 +34,7 @@ impl MainRenderer {
         // Set the WGPU_BACKEND env var as a comma seperated list of specific backend(s) to use
         let backends = wgpu::util::backend_bits_from_env().unwrap_or(wgpu::Backends::all());
         let instance = wgpu::Instance::new(backends);
-        let surface = unsafe { instance.create_surface(&window.winit_window) };
+        let surface = unsafe { instance.create_surface(&window.win) };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),

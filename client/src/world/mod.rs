@@ -5,7 +5,7 @@ mod player;
 use crate::camera::Camera;
 
 use self::{
-    chunk_manager::chunk_update,
+    chunk_manager::{chunk_mesh_gen, chunk_update},
     physics::physics,
     player::{mouse_lock, player_movement, Player},
 };
@@ -35,6 +35,7 @@ impl bevy_app::Plugin for WorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<ChunkManager>()
             .add_startup_system(spawn)
+            .add_system(chunk_mesh_gen)
             .add_system(chunk_update)
             .add_system(player_movement.before(physics))
             .add_system(physics)

@@ -2,3 +2,6 @@
 members = ["client", "common", "server", "server-cli"]
 default-members = ["client"]
 resolver = "2"
+
+[profile.dev]
+opt-level = 1

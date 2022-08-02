@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use bevy_ecs::prelude::*;
 use opencuboids_common::{in_bounds, loop_3d_vec, BlockID, Chunk, CHUNK_SIZE};
 
@@ -5,12 +7,13 @@ use crate::render::{ChunkMesh, MainRenderer};
 
 use super::{physics::WorldTransform, Player};
 
-const RENDER_DISTANCE: i32 = 2;
+const RENDER_DISTANCE: i32 = 3;
 
 #[derive(Default)]
 pub struct ChunkManager {
     chunk_map: bevy_utils::HashMap<glam::IVec3, Chunk>,
     chunk_pos_center: Option<glam::IVec3>,
+    chunk_update_queue: VecDeque<glam::IVec3>,
 }
 
 impl ChunkManager {
@@ -25,9 +28,8 @@ impl ChunkManager {
 
 pub fn chunk_update(
     mut chunk_manager: ResMut<ChunkManager>,
-    renderer: Res<MainRenderer>,
     player_query: Query<(&WorldTransform, With<Player>)>,
-    mut mesh_query: Query<(Entity, &mut WorldTransform, &mut ChunkMesh, Without<Player>)>,
+    mut mesh_query: Query<(Entity, &mut ChunkMesh)>,
     mut commands: Commands,
 ) {
     let (player_trans, _) = player_query.single();
@@ -67,30 +69,40 @@ pub fn chunk_update(
                 if chunk_manager.chunk_pos_center.map_or(true, |center_pos| {
                     !in_bounds(chunk_pos, center_pos, RENDER_DISTANCE)
                 }) {
-                    let chunk = chunk_manager.chunk_map.get(&chunk_pos).unwrap();
-                    let block_pos = chunk_pos.as_vec3() * CHUNK_SIZE as f32;
-                    let mesh = ChunkMesh::new(&renderer.device, &chunk, chunk_pos, &chunk_manager);
-                    if let Some(mesh) = mesh {
-                        commands
-                            .spawn()
-                            .insert(WorldTransform {
-                                position: block_pos,
-                                ..Default::default()
-                            })
-                            .insert(mesh);
-                    }
+                    chunk_manager.chunk_update_queue.push_back(chunk_pos);
                 }
             });
         }
 
         // Remove any chunk meshes outside render distance
-        for (entity, _, mesh, _) in mesh_query.iter_mut() {
+        for (entity, mesh) in mesh_query.iter_mut() {
             if !in_bounds(mesh.chunk_pos, player_chunk_pos, RENDER_DISTANCE) {
                 commands.entity(entity).despawn();
             }
         }
 
         chunk_manager.chunk_pos_center = Some(player_chunk_pos);
+    }
+}
+
+pub fn chunk_mesh_gen(
+    mut commands: Commands,
+    renderer: Res<MainRenderer>,
+    mut chunk_manager: ResMut<ChunkManager>,
+) {
+    if let Some(chunk_pos) = chunk_manager.chunk_update_queue.pop_front() {
+        let chunk = chunk_manager.chunk_map.get(&chunk_pos).unwrap();
+        let block_pos = chunk_pos.as_vec3() * CHUNK_SIZE as f32;
+        let mesh = ChunkMesh::new(&renderer.device, &chunk, chunk_pos, &chunk_manager);
+        if let Some(mesh) = mesh {
+            commands
+                .spawn()
+                .insert(WorldTransform {
+                    position: block_pos,
+                    ..Default::default()
+                })
+                .insert(mesh);
+        }
     }
 }
 

@@ -22,6 +22,14 @@ impl Chunk {
     pub fn get_block(&self, pos: glam::UVec3) -> BlockID {
         self.blocks[pos_to_index(pos)]
     }
+
+    pub fn try_get_block(&self, pos: glam::UVec3) -> Option<BlockID> {
+        if pos.x >= CHUNK_SIZE as u32 || pos.y >= CHUNK_SIZE as u32 || pos.z >= CHUNK_SIZE as u32 {
+            None
+        } else {
+            Some(self.get_block(pos))
+        }
+    }
 }
 
 #[macro_export]

@@ -7,5 +7,5 @@ Open source 3d voxel engine made with Rust.
 To run:
 
 ```sh
-cargo run --release
+cargo run
 ```

@@ -78,8 +78,13 @@ impl ChunkMesh {
 
             for dir_index in 0..6 {
                 let dir_vec = DIRECTION_TO_VECTOR[dir_index];
-                let neighbour_pos = block_pos + dir_vec + chunk_block_pos;
-                if chunk_manager.get_block(neighbour_pos) == 0 {
+                let neighbour_pos = block_pos + dir_vec;
+                // Only get chunk via chunk_manager if on edge because map lookup slow
+                if chunk
+                    .try_get_block(neighbour_pos.as_uvec3())
+                    .unwrap_or_else(|| chunk_manager.get_block(neighbour_pos + chunk_block_pos))
+                    == 0
+                {
                     // Add face
                     for i in 0..4 {
                         let pos =
