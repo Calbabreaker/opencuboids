@@ -1,4 +1,5 @@
 mod chunk;
+pub mod network;
 
 pub use chunk::*;
 

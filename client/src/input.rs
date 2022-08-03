@@ -105,9 +105,9 @@ fn process_events(
 }
 
 #[derive(Default)]
-pub struct InputPlugin;
+pub struct Plugin;
 
-impl bevy_app::Plugin for InputPlugin {
+impl bevy_app::Plugin for Plugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<Input>()
             .add_system_to_stage(bevy_app::CoreStage::PreUpdate, process_events);

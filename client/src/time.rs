@@ -33,9 +33,9 @@ impl Time {
 }
 
 #[derive(Default)]
-pub struct TimePlugin;
+pub struct Plugin;
 
-impl bevy_app::Plugin for TimePlugin {
+impl bevy_app::Plugin for Plugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<Time>()
             .add_system_to_stage(bevy_app::CoreStage::PreUpdate, Time::update_system);

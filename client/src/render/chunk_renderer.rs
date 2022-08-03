@@ -1,7 +1,9 @@
 use bevy_ecs::prelude::*;
-use opencuboids_common::{loop_3d, Chunk, CHUNK_SIZE, CHUNK_VOLUME, DIRECTION_TO_VECTOR};
+use opencuboids_common::{
+    in_bounds, loop_3d, Chunk, CHUNK_SIZE, CHUNK_VOLUME, DIRECTION_TO_VECTOR,
+};
 
-use crate::world::{ChunkManager, WorldTransform};
+use crate::world::{ChunkManager, WorldTransform, RENDER_DISTANCE};
 
 use super::{
     bind_group::{BindGroup, BindGroupEntry},
@@ -61,16 +63,11 @@ pub struct ChunkMesh {
 }
 
 impl ChunkMesh {
-    pub fn new(
-        device: &wgpu::Device,
-        chunk: &Chunk,
-        chunk_pos: glam::IVec3,
-        chunk_manager: &ChunkManager,
-    ) -> Option<Self> {
+    pub fn new(device: &wgpu::Device, chunk: &Chunk, chunk_manager: &ChunkManager) -> Option<Self> {
         let mut verticies = [Vertex::default(); MAX_QUADS * 4];
         let mut vertex_i = 0;
 
-        let chunk_block_pos = chunk_pos * CHUNK_SIZE as i32;
+        let chunk_block_pos = chunk.pos * CHUNK_SIZE as i32;
         loop_3d!(0..CHUNK_SIZE as i32, |block_pos: glam::IVec3| {
             if chunk.get_block(block_pos.as_uvec3()) == 0 {
                 return;
@@ -110,7 +107,7 @@ impl ChunkMesh {
                     wgpu::BufferUsages::VERTEX,
                     bytemuck::cast_slice(&verticies[0..vertex_i + 1]),
                 ),
-                chunk_pos,
+                chunk_pos: chunk.pos,
             })
         } else {
             None
@@ -174,6 +171,43 @@ impl FromWorld for ChunkRenderer {
             render_pipeline,
             index_buffer,
             texture_bind_group,
+        }
+    }
+}
+
+pub fn chunk_mesh_gen(
+    mut commands: Commands,
+    renderer: Res<MainRenderer>,
+    mut chunk_manager: ResMut<ChunkManager>,
+    mut query: Query<(Entity, &mut ChunkMesh)>,
+) {
+    if chunk_manager.loading_chunks {
+        return;
+    }
+
+    if let Some(chunk_pos) = chunk_manager.chunk_update_queue.pop_front() {
+        let chunk = chunk_manager.chunk_map.get(&chunk_pos).unwrap();
+        let block_pos = chunk_pos.as_vec3() * CHUNK_SIZE as f32;
+        let mesh = ChunkMesh::new(&renderer.device, &chunk, &chunk_manager);
+        if let Some(mesh) = mesh {
+            commands
+                .spawn()
+                .insert(WorldTransform {
+                    position: block_pos,
+                    ..Default::default()
+                })
+                .insert(mesh);
+        }
+    }
+
+    // Remove any chunk meshes outside render distance
+    for (entity, mesh) in query.iter_mut() {
+        if !in_bounds(
+            mesh.chunk_pos,
+            chunk_manager.chunk_pos_center.unwrap(),
+            RENDER_DISTANCE,
+        ) {
+            commands.entity(entity).despawn();
         }
     }
 }

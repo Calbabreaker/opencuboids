@@ -5,16 +5,17 @@ edition = "2021"
 authors = ["Calbabreaker <calbabreaker@gmail.com>"]
 
 [dependencies]
+opencuboids-common = { path = "../common" }
+opencuboids-server = { path = "../server" }
+
 bevy_app = "0.8.0"
 bevy_ecs = "0.8.0"
 bevy_utils = "0.8.0"
 bytemuck = { version = "1.10.0", features = ["derive"] }
-glam = { version = "0.21.2", features = ["bytemuck"] }
+glam = { version = "0.21.3", features = ["bytemuck"] }
 image = { version = "0.24.2", default-features = false, features = ["png"] }
 log = "0.4.17"
 pollster = "0.2.5"
 wgpu = "0.13.1"
 winit = "0.26.1"
-
-opencuboids-common = { path = "../common" }
-opencuboids-server = { path = "../server" }
+crossbeam-channel = "0.5.6"

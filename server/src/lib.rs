@@ -1,18 +1,16 @@
-use std::{
-    io::{Read, Write},
-    net::{TcpListener, TcpStream, ToSocketAddrs},
-};
+mod world_gen;
 
-use opencuboids_common::DEFAULT_PORT;
+use std::net::{SocketAddr, TcpListener, TcpStream};
 
-pub fn start(port: Option<u16>) {
-    let port = port.unwrap_or(DEFAULT_PORT);
-    if let Err(err) = bind(("0.0.0.0", port)) {
-        log::error!("Failed to start server on port {} - {}", port, err);
+use opencuboids_common::{loop_3d_vec, network, Chunk};
+
+pub fn start(address: SocketAddr) {
+    if let Err(err) = bind(address) {
+        log::error!("Failed to start server on {} - {}", address, err);
     }
 }
 
-fn bind<A: ToSocketAddrs>(address: A) -> std::io::Result<()> {
+fn bind(address: SocketAddr) -> std::io::Result<()> {
     let listener = TcpListener::bind(address)?;
     log::info!("Server running on {}", listener.local_addr()?);
 
@@ -32,18 +30,28 @@ fn bind<A: ToSocketAddrs>(address: A) -> std::io::Result<()> {
     Ok(())
 }
 
-fn handle_client(mut stream: TcpStream) -> std::io::Result<()> {
-    let mut buffer = [0; 1024];
-    loop {
-        let size = stream.read(&mut buffer)?;
-        if size < 1 {
-            break;
-        }
+fn handle_client(stream: TcpStream) -> network::Result<()> {
+    use network::{Request, Response};
 
-        log::info!("Received message: {}", String::from_utf8_lossy(&buffer));
-        stream.write(&buffer[0..size])?;
-        buffer = [0; 1024];
-    }
+    let mut protocol = network::Protocol::with_stream(stream)?;
+    // loop {
+    //     let request = protocol.read::<network::Request>()?;
+    //     log::info!("Received message: {:#?}", request);
 
-    Ok(())
+    //     match request {
+    //         Request::ChunkRange { start, end } => {
+    let start = glam::ivec3(0, 0, 0);
+    let end = glam::ivec3(3, 3, 3);
+    let mut chunks = Vec::new();
+    loop_3d_vec!(start, end, |chunk_pos| {
+        let mut chunk = Chunk::new(chunk_pos);
+        world_gen::gen_blocks(&mut chunk, chunk_pos);
+        chunks.push(chunk);
+    });
+
+    let res = &Response::ChunkData(chunks);
+    protocol.send(res)
+    // }
+    // }
+    // }
 }

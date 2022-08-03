@@ -1,12 +1,3 @@
-use crate::window::Window;
-
-pub use self::{chunk_renderer::ChunkMesh, main_renderer::MainRenderer};
-use self::{
-    chunk_renderer::{chunk_render, ChunkRenderer},
-    main_renderer::{on_resize, post_render, pre_render, RenderInstance},
-};
-use bevy_ecs::prelude::*;
-
 mod bind_group;
 mod buffer;
 mod chunk_renderer;
@@ -14,16 +5,24 @@ mod main_renderer;
 mod render_pipeline;
 mod texture;
 
+use self::{
+    chunk_renderer::{chunk_mesh_gen, chunk_render, ChunkRenderer},
+    main_renderer::{on_resize, post_render, pre_render, MainRenderer, RenderInstance},
+};
+use crate::window::Window;
+use bevy_ecs::prelude::*;
+
 #[derive(Default)]
-pub struct RenderPlugin;
+pub struct Plugin;
 
 #[derive(SystemLabel, Clone, Copy, Hash, Debug, Eq, PartialEq)]
 struct RenderPass;
 
-impl bevy_app::Plugin for RenderPlugin {
+impl bevy_app::Plugin for Plugin {
     fn build(&self, app: &mut bevy_app::App) {
         let render_stage = SystemStage::parallel()
             .with_system(on_resize.before(pre_render))
+            .with_system(chunk_mesh_gen)
             .with_system(pre_render.before(RenderPass))
             .with_system(chunk_render.label(RenderPass))
             .with_system(post_render.after(RenderPass));

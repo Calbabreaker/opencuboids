@@ -7,3 +7,4 @@ authors = ["Calbabreaker <calbabreaker@gmail.com>"]
 [dependencies]
 opencuboids-common = { path = "../common" }
 opencuboids-server = { path = "../server" }
+clap = { version = "3.2.16", features = ["derive"] }

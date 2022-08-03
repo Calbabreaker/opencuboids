@@ -121,9 +121,9 @@ fn runner(mut app: bevy_app::App) {
 }
 
 #[derive(Default)]
-pub struct WindowPlugin;
+pub struct Plugin;
 
-impl bevy_app::Plugin for WindowPlugin {
+impl bevy_app::Plugin for Plugin {
     fn build(&self, app: &mut bevy_app::App) {
         let event_loop = EventLoop::new();
         app.insert_resource(Window::new(&event_loop))

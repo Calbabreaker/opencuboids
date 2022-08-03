@@ -3,5 +3,6 @@ members = ["client", "common", "server", "server-cli"]
 default-members = ["client"]
 resolver = "2"
 
+# Enable small optimizations otherwise app is very slow
 [profile.dev]
 opt-level = 1
