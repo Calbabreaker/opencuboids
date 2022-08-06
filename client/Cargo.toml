@@ -19,3 +19,4 @@ pollster = "0.2.5"
 wgpu = "0.13.1"
 winit = "0.26.1"
 crossbeam-channel = "0.5.6"
+noise = { version = "0.7.0", default-features = false}

@@ -34,24 +34,19 @@ fn handle_client(stream: TcpStream) -> network::Result<()> {
     use network::{Request, Response};
 
     let mut protocol = network::Protocol::with_stream(stream)?;
-    // loop {
-    //     let request = protocol.read::<network::Request>()?;
-    //     log::info!("Received message: {:#?}", request);
+    loop {
+        let request = protocol.read::<network::Request>()?;
+        log::info!("Received message: {:#?}", request);
 
-    //     match request {
-    //         Request::ChunkRange { start, end } => {
-    let start = glam::ivec3(0, 0, 0);
-    let end = glam::ivec3(3, 3, 3);
-    let mut chunks = Vec::new();
-    loop_3d_vec!(start, end, |chunk_pos| {
-        let mut chunk = Chunk::new(chunk_pos);
-        world_gen::gen_blocks(&mut chunk, chunk_pos);
-        chunks.push(chunk);
-    });
-
-    let res = &Response::ChunkData(chunks);
-    protocol.send(res)
-    // }
-    // }
-    // }
+        match request {
+            Request::ChunkRange { start, end } => {
+                loop_3d_vec!(start, end, chunk_pos, {
+                    let mut chunk = Chunk::new(chunk_pos);
+                    world_gen::gen_blocks(&mut chunk, chunk_pos);
+                    let response = Response::ChunkData(chunk);
+                    protocol.send(&response)?
+                })
+            }
+        }
+    }
 }

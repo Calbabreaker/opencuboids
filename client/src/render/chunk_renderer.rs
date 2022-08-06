@@ -68,9 +68,9 @@ impl ChunkMesh {
         let mut vertex_i = 0;
 
         let chunk_block_pos = chunk.pos * CHUNK_SIZE as i32;
-        loop_3d!(0..CHUNK_SIZE as i32, |block_pos: glam::IVec3| {
+        loop_3d!(0..CHUNK_SIZE as i32, block_pos, {
             if chunk.get_block(block_pos.as_uvec3()) == 0 {
-                return;
+                continue;
             }
 
             for dir_index in 0..6 {
@@ -181,22 +181,24 @@ pub fn chunk_mesh_gen(
     mut chunk_manager: ResMut<ChunkManager>,
     mut query: Query<(Entity, &mut ChunkMesh)>,
 ) {
-    if chunk_manager.loading_chunks {
+    if chunk_manager.chunks_left_loading != 0 {
         return;
     }
 
-    if let Some(chunk_pos) = chunk_manager.chunk_update_queue.pop_front() {
-        let chunk = chunk_manager.chunk_map.get(&chunk_pos).unwrap();
-        let block_pos = chunk_pos.as_vec3() * CHUNK_SIZE as f32;
-        let mesh = ChunkMesh::new(&renderer.device, &chunk, &chunk_manager);
-        if let Some(mesh) = mesh {
-            commands
-                .spawn()
-                .insert(WorldTransform {
-                    position: block_pos,
-                    ..Default::default()
-                })
-                .insert(mesh);
+    for _ in 0..4 {
+        if let Some(chunk_pos) = chunk_manager.chunk_update_queue.pop_front() {
+            let chunk = chunk_manager.chunk_map.get(&chunk_pos).unwrap();
+            let block_pos = chunk_pos.as_vec3() * CHUNK_SIZE as f32;
+            let mesh = ChunkMesh::new(&renderer.device, &chunk, &chunk_manager);
+            if let Some(mesh) = mesh {
+                commands
+                    .spawn()
+                    .insert(WorldTransform {
+                        position: block_pos,
+                        ..Default::default()
+                    })
+                    .insert(mesh);
+            }
         }
     }
 

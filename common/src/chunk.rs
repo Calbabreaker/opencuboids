@@ -5,7 +5,7 @@ use serde::{
 };
 
 pub const CHUNK_SIZE: usize = 32;
-pub const CHUNK_VOLUME: usize = 32 * 32 * 32;
+pub const CHUNK_VOLUME: usize = CHUNK_SIZE.pow(3);
 pub type BlockID = u8;
 
 #[derive(Serialize, Deserialize)]
@@ -53,12 +53,12 @@ impl Chunk {
 
 #[macro_export]
 macro_rules! loop_3d_vec {
-    ($start: expr, $end: expr, $closure: expr) => {
+    ($start: expr, $end: expr, $pos: ident, $code: expr) => {
         for x in $start.x..=$end.x {
             for y in $start.y..=$end.y {
                 for z in $start.z..=$end.z {
-                    let pos = glam::ivec3(x, y, z);
-                    $closure(pos);
+                    let $pos = glam::ivec3(x, y, z);
+                    $code
                 }
             }
         }
@@ -67,39 +67,27 @@ macro_rules! loop_3d_vec {
 
 #[macro_export]
 macro_rules! loop_3d {
-    ($range: expr, $closure: expr) => {
+    ($range: expr, $pos: ident, $code: expr) => {
         for x in $range {
             for y in $range {
                 for z in $range {
-                    let pos = glam::ivec3(x, y, z);
-                    $closure(pos);
+                    let $pos = glam::ivec3(x, y, z);
+                    $code
                 }
             }
         }
     };
 }
 
-/// Serializes the blocks with run length encoding to compress them
 pub fn serialize_blocks<S: Serializer>(
     blocks: &[BlockID; CHUNK_VOLUME],
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
     let mut seq = serializer.serialize_tuple(blocks.len())?;
-
-    let mut current_block = None;
-    let mut count = 0;
+    // TODO: add run length encoding
     for block in blocks {
-        if current_block == Some(block) {
-            count += 1;
-        } else {
-            log::warn!("{} {}", block, count);
-            seq.serialize_element(&(block, count))?;
-            count = 0;
-            current_block = Some(block);
-        }
+        seq.serialize_element(block)?
     }
-
-    seq.serialize_element(&(current_block, count))?;
     seq.end()
 }
 
@@ -120,16 +108,10 @@ pub fn deserialize_blocks<'a, D: Deserializer<'a>>(
             A: SeqAccess<'de>,
         {
             let mut blocks = [0; CHUNK_VOLUME];
-            let mut block_i = 0;
-            while let Ok(Some(block)) = seq.next_element() {
-                let count = seq
+            for i in 0..CHUNK_VOLUME {
+                blocks[i] = seq
                     .next_element()?
-                    .ok_or_else(|| serde::de::Error::missing_field("Mising count for block"))?;
-                log::error!("{} {}", block, count);
-                for _ in 0..count {
-                    blocks[block_i] = block;
-                    block_i += 1;
-                }
+                    .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
             }
             Ok(blocks)
         }

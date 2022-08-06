@@ -62,8 +62,8 @@ fn handle_client(
 pub fn handle_responses(channel: ResMut<StreamChannel>, mut chunk_manager: ResMut<ChunkManager>) {
     for response in channel.receiver.try_iter() {
         match response {
-            network::Response::ChunkData(chunks) => {
-                chunk_manager.handle_chunk_response(chunks);
+            network::Response::ChunkData(chunk) => {
+                chunk_manager.handle_chunk_response(chunk);
             }
             _ => (),
         }

@@ -19,7 +19,7 @@ pub enum Request {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Response {
-    ChunkData(Vec<Chunk>),
+    ChunkData(Chunk),
     Test,
 }
 
