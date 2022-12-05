@@ -38,7 +38,7 @@ impl<T: Copy + Eq + Hash> InputState<T> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct Input {
     key_state: InputState<VirtualKeyCode>,
     mouse_state: InputState<MouseButton>,
@@ -69,12 +69,6 @@ impl Input {
     // pub fn is_mouse_just_released(&self, mouse_code: ButtonId) -> bool {
     //     self.mouse_state.just_released.contains(&mouse_code)
     // }
-
-    pub fn update(&mut self) {
-        self.mouse_offset = glam::Vec2::ZERO;
-        self.key_state.clear();
-        self.mouse_state.clear();
-    }
 }
 
 fn process_events(
@@ -83,7 +77,9 @@ fn process_events(
     mut mouse_input_event: EventReader<MouseInput>,
     mut mouse_motion_event: EventReader<MouseMotion>,
 ) {
-    input.update();
+    input.mouse_offset = glam::Vec2::ZERO;
+    input.key_state.clear();
+    input.mouse_state.clear();
 
     for event in keyboard_input_event.iter() {
         match event.state {

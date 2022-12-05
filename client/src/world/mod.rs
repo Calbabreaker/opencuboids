@@ -16,15 +16,15 @@ pub use self::{
 };
 
 fn spawn(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(WorldTransform {
+    commands.spawn((
+        WorldTransform {
             rotation: glam::vec2(f32::to_radians(90.0), 0.0),
             ..Default::default()
-        })
-        .insert(PhysicsBody::default())
-        .insert(Camera::default())
-        .insert(Player);
+        },
+        PhysicsBody::default(),
+        Camera::default(),
+        Player,
+    ));
 }
 
 #[derive(Default)]

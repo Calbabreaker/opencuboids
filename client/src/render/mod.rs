@@ -7,7 +7,7 @@ mod texture;
 
 use self::{
     chunk_renderer::{chunk_mesh_gen, chunk_render, ChunkRenderer},
-    main_renderer::{on_resize, post_render, pre_render, MainRenderer, RenderInstance},
+    main_renderer::{on_resize, post_render, pre_render, MainRenderer, RenderState},
 };
 use crate::window::Window;
 use bevy_ecs::prelude::*;
@@ -28,9 +28,9 @@ impl bevy_app::Plugin for Plugin {
             .with_system(post_render.after(RenderPass));
 
         let window = app.world.resource::<Window>();
-        app.insert_resource(pollster::block_on(MainRenderer::new(window)))
-            .init_resource::<Option<RenderInstance>>()
+        app.insert_resource(pollster::block_on(RenderState::new(window)))
             .init_resource::<ChunkRenderer>()
+            .init_resource::<MainRenderer>()
             .add_stage_after(bevy_app::CoreStage::PostUpdate, "render", render_stage);
     }
 }

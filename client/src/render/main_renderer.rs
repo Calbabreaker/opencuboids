@@ -4,7 +4,6 @@ use crate::{
     world::WorldTransform,
 };
 use bevy_ecs::prelude::*;
-use std::sync::Arc;
 
 use super::{
     bind_group::{BindGroup, BindGroupEntry},
@@ -18,18 +17,18 @@ struct GlobalUniform {
     view_projection: glam::Mat4,
 }
 
-pub struct MainRenderer {
+#[derive(Resource)]
+pub struct RenderState {
     surface: wgpu::Surface,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub device: wgpu::Device,
     pub global_bind_group: BindGroup,
     global_uniform_buffer: DynamicBuffer<GlobalUniform>,
-    pub instance: Option<Arc<RenderInstance>>,
     pub depth_texture: Texture,
 }
 
-impl MainRenderer {
+impl RenderState {
     pub async fn new(window: &Window) -> Self {
         // Set the WGPU_BACKEND env var as a comma seperated list of specific backend(s) to use
         let backends = wgpu::util::backend_bits_from_env().unwrap_or(wgpu::Backends::all());
@@ -66,6 +65,7 @@ impl MainRenderer {
             format: surface.get_supported_formats(&adapter)[0],
             width: size.width,
             height: size.height,
+            alpha_mode: wgpu::CompositeAlphaMode::Auto,
         };
 
         surface.configure(&device, &config);
@@ -89,7 +89,6 @@ impl MainRenderer {
             config,
             global_bind_group,
             global_uniform_buffer,
-            instance: None,
         }
     }
 
@@ -101,28 +100,43 @@ impl MainRenderer {
     }
 }
 
-pub struct RenderInstance {
+struct RenderInstance {
     encoder: wgpu::CommandEncoder,
     view: wgpu::TextureView,
     output: wgpu::SurfaceTexture,
 }
 
-impl RenderInstance {
+#[derive(Resource, Default)]
+pub struct MainRenderer {
+    instance: Option<RenderInstance>,
+}
+
+impl MainRenderer {
     // Creates the output texture and encoder for rendering
-    fn new(device: &wgpu::Device, surface: &wgpu::Surface) -> Result<Self, wgpu::SurfaceError> {
+    fn begin(
+        &mut self,
+        device: &wgpu::Device,
+        surface: &wgpu::Surface,
+    ) -> Result<(), wgpu::SurfaceError> {
         let output = surface.get_current_texture()?;
-        Ok(Self {
+        self.instance = Some(RenderInstance {
             view: output
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor::default()),
             encoder: device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None }),
             output,
-        })
+        });
+
+        Ok(())
     }
 
-    fn present(self, queue: &wgpu::Queue) {
-        queue.submit(std::iter::once(self.encoder.finish()));
-        self.output.present();
+    fn present(&mut self, queue: &wgpu::Queue) {
+        let instance = self
+            .instance
+            .take()
+            .expect("Tried to present before calling begin");
+        queue.submit(std::iter::once(instance.encoder.finish()));
+        instance.output.present();
     }
 
     // Every render system should call this to start rendering
@@ -130,68 +144,69 @@ impl RenderInstance {
         &'a mut self,
         depth_texture_view: Option<&'a wgpu::TextureView>,
     ) -> wgpu::RenderPass {
-        self.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: None,
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &self.view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
-                        a: 1.0,
-                    }),
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: depth_texture_view.map(|view| {
-                wgpu::RenderPassDepthStencilAttachment {
-                    view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
+        let instance = self
+            .instance
+            .as_mut()
+            .expect("Tried to begin render pass calling begin");
+        instance
+            .encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &instance.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
                         store: true,
-                    }),
-                    stencil_ops: None,
-                }
-            }),
-        })
+                    },
+                })],
+                depth_stencil_attachment: depth_texture_view.map(|view| {
+                    wgpu::RenderPassDepthStencilAttachment {
+                        view,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(1.0),
+                            store: true,
+                        }),
+                        stencil_ops: None,
+                    }
+                }),
+            })
     }
 }
 
 pub fn pre_render(
+    mut render_state: ResMut<RenderState>,
     mut renderer: ResMut<MainRenderer>,
-    mut render_instance: ResMut<Option<RenderInstance>>,
     window: Res<Window>,
     camera_query: Query<(&Camera, &WorldTransform)>,
 ) {
     let (camera, transform) = camera_query.single();
-    renderer.global_uniform_buffer.update(
-        &renderer.queue,
+    render_state.global_uniform_buffer.update(
+        &render_state.queue,
         &[GlobalUniform {
             view_projection: camera.view_projection(*transform),
         }],
     );
 
-    match RenderInstance::new(&renderer.device, &renderer.surface) {
-        Err(wgpu::SurfaceError::Lost) => renderer.resize(window.size()),
+    match renderer.begin(&render_state.device, &render_state.surface) {
+        Err(wgpu::SurfaceError::Lost) => render_state.resize(window.size()),
         Err(wgpu::SurfaceError::OutOfMemory) => panic!("GPU out of memory"),
         Err(e) => log::error!("{:?}", e),
-        Ok(instance) => *render_instance = Some(instance),
+        _ => (),
     };
 }
 
-pub fn post_render(
-    renderer: Res<MainRenderer>,
-    mut render_instance: ResMut<Option<RenderInstance>>,
-) {
-    if let Some(instance) = render_instance.take() {
-        instance.present(&renderer.queue);
-    }
+pub fn post_render(render_state: ResMut<RenderState>, mut renderer: ResMut<MainRenderer>) {
+    renderer.present(&render_state.queue);
 }
 
 pub fn on_resize(
-    mut renderer: ResMut<MainRenderer>,
+    mut renderer: ResMut<RenderState>,
     mut camera_query: Query<&mut Camera>,
     mut viewport_resize_event: EventReader<WindowResize>,
 ) {

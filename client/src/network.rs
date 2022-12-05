@@ -7,6 +7,7 @@ use opencuboids_common::network;
 
 use crate::world::ChunkManager;
 
+#[derive(Resource)]
 pub struct StreamChannel {
     pub sender: Sender<network::Request>,
     pub receiver: Receiver<network::Response>,

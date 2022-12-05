@@ -8,7 +8,7 @@ use super::{physics::WorldTransform, Player};
 
 pub const RENDER_DISTANCE: i32 = 5;
 
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct ChunkManager {
     pub chunk_update_queue: VecDeque<glam::IVec3>,
     pub chunks_left_loading: u32,
@@ -84,7 +84,7 @@ pub fn chunk_update(
 pub fn gen_blocks(chunk: &mut Chunk, chunk_pos: glam::IVec3) {
     let start_pos = chunk_pos * CHUNK_SIZE as i32;
     let end_pos = start_pos + CHUNK_SIZE as i32;
-    let perlin = noise::Perlin::new();
+    let perlin = noise::Perlin::new(10000);
 
     for x in start_pos.x..end_pos.x {
         for z in start_pos.z..end_pos.z {

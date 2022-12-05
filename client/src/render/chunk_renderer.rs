@@ -8,10 +8,9 @@ use crate::world::{ChunkManager, WorldTransform, RENDER_DISTANCE};
 use super::{
     bind_group::{BindGroup, BindGroupEntry},
     buffer::{new_buffer_quad_index, Buffer},
-    main_renderer::RenderInstance,
     render_pipeline::RenderPipeline,
     texture::Texture,
-    MainRenderer,
+    MainRenderer, RenderState,
 };
 
 // Worst case scenario of chunk: 3D chessboard pattern
@@ -115,6 +114,7 @@ impl ChunkMesh {
     }
 }
 
+#[derive(Resource)]
 pub struct ChunkRenderer {
     index_buffer: Buffer<u16>,
     render_pipeline: RenderPipeline,
@@ -123,7 +123,7 @@ pub struct ChunkRenderer {
 
 impl FromWorld for ChunkRenderer {
     fn from_world(world: &mut World) -> Self {
-        let renderer = world.resource::<MainRenderer>();
+        let renderer = world.resource::<RenderState>();
         let device = &renderer.device;
 
         let diffuse_image = image::load_from_memory(include_bytes!("dirt.png")).unwrap();
@@ -177,7 +177,7 @@ impl FromWorld for ChunkRenderer {
 
 pub fn chunk_mesh_gen(
     mut commands: Commands,
-    renderer: Res<MainRenderer>,
+    renderer: Res<RenderState>,
     mut chunk_manager: ResMut<ChunkManager>,
     mut query: Query<(Entity, &mut ChunkMesh)>,
 ) {
@@ -191,13 +191,13 @@ pub fn chunk_mesh_gen(
             let block_pos = chunk_pos.as_vec3() * CHUNK_SIZE as f32;
             let mesh = ChunkMesh::new(&renderer.device, &chunk, &chunk_manager);
             if let Some(mesh) = mesh {
-                commands
-                    .spawn()
-                    .insert(WorldTransform {
+                commands.spawn((
+                    WorldTransform {
                         position: block_pos,
                         ..Default::default()
-                    })
-                    .insert(mesh);
+                    },
+                    mesh,
+                ));
             }
         }
     }
@@ -215,33 +215,31 @@ pub fn chunk_mesh_gen(
 }
 
 pub fn chunk_render(
-    renderer: Res<MainRenderer>,
-    mut render_instance: ResMut<Option<RenderInstance>>,
+    render_state: ResMut<RenderState>,
+    mut renderer: ResMut<MainRenderer>,
     chunk_renderer: Res<ChunkRenderer>,
     query: Query<(&WorldTransform, &ChunkMesh)>,
 ) {
-    if let Some(instance) = render_instance.as_mut() {
-        let mut render_pass = instance.begin_render_pass(Some(&renderer.depth_texture.view));
+    let mut render_pass = renderer.begin_render_pass(Some(&render_state.depth_texture.view));
 
-        render_pass.set_pipeline(&chunk_renderer.render_pipeline.pipeline);
-        render_pass.set_bind_group(0, &renderer.global_bind_group.group, &[]);
-        render_pass.set_bind_group(1, &chunk_renderer.texture_bind_group.group, &[]);
+    render_pass.set_pipeline(&chunk_renderer.render_pipeline.pipeline);
+    render_pass.set_bind_group(0, &render_state.global_bind_group.group, &[]);
+    render_pass.set_bind_group(1, &chunk_renderer.texture_bind_group.group, &[]);
 
-        render_pass.set_index_buffer(
-            chunk_renderer.index_buffer.buf.slice(..),
-            wgpu::IndexFormat::Uint16,
+    render_pass.set_index_buffer(
+        chunk_renderer.index_buffer.buf.slice(..),
+        wgpu::IndexFormat::Uint16,
+    );
+
+    for (transform, mesh) in query.iter() {
+        let index_count = mesh.vertex_buffer.len / 4 * 6;
+        render_pass.set_vertex_buffer(0, mesh.vertex_buffer.buf.slice(..));
+        render_pass.set_push_constants(
+            wgpu::ShaderStages::VERTEX,
+            0,
+            bytemuck::cast_slice(&[transform.position]),
         );
 
-        for (transform, mesh) in query.iter() {
-            let index_count = mesh.vertex_buffer.len / 4 * 6;
-            render_pass.set_vertex_buffer(0, mesh.vertex_buffer.buf.slice(..));
-            render_pass.set_push_constants(
-                wgpu::ShaderStages::VERTEX,
-                0,
-                bytemuck::cast_slice(&[transform.position]),
-            );
-
-            render_pass.draw_indexed(0..index_count as u32, 0, 0..1);
-        }
+        render_pass.draw_indexed(0..index_count as u32, 0, 0..1);
     }
 }

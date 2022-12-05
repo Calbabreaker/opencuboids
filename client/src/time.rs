@@ -1,17 +1,22 @@
 use bevy_ecs::prelude::*;
 
+#[derive(Resource)]
 pub struct Time {
     pub delta: bevy_utils::Duration,
-    pub delta_seconds: f32,
-    last_update: Option<bevy_utils::Instant>,
+    last_update: bevy_utils::Instant,
+    pub frame_rate: u32,
+    frame_rate_counter: u32,
+    last_frame_rate_show: bevy_utils::Instant,
 }
 
 impl Default for Time {
-    fn default() -> Time {
-        Time {
-            delta_seconds: 0.0,
-            delta: bevy_utils::Duration::from_secs(0),
-            last_update: None,
+    fn default() -> Self {
+        Self {
+            delta: bevy_utils::Duration::default(),
+            last_update: bevy_utils::Instant::now(),
+            frame_rate: 0,
+            frame_rate_counter: 0,
+            last_frame_rate_show: bevy_utils::Instant::now(),
         }
     }
 }
@@ -19,12 +24,17 @@ impl Default for Time {
 impl Time {
     pub fn update(&mut self) {
         let now = bevy_utils::Instant::now();
-        if let Some(last_update) = self.last_update {
-            self.delta = now - last_update;
-            self.delta_seconds = self.delta.as_secs_f32();
+        self.delta = now - self.last_update;
+
+        self.frame_rate_counter += 1;
+        if now - self.last_frame_rate_show > bevy_utils::Duration::from_secs(1) {
+            self.frame_rate = self.frame_rate_counter;
+            self.last_frame_rate_show = now;
+            self.frame_rate_counter = 0;
+            log::info!("Frame rate: {}", self.frame_rate);
         }
 
-        self.last_update = Some(now);
+        self.last_update = now;
     }
 
     pub fn update_system(mut res: ResMut<Self>) {

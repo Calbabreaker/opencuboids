@@ -1,9 +1,9 @@
-use bevy_ecs::event::Events;
+use bevy_ecs::{event::Events, system::Resource};
 use winit::{
     dpi::PhysicalSize,
     event::{DeviceEvent, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    window::{CursorGrabMode, WindowBuilder},
 };
 
 pub use winit::event::{ElementState, MouseButton, VirtualKeyCode};
@@ -26,6 +26,7 @@ pub struct KeyboardInput {
     pub keycode: VirtualKeyCode,
 }
 
+#[derive(Resource)]
 pub struct Window {
     pub win: winit::window::Window,
     mouse_locked: bool,
@@ -44,8 +45,8 @@ impl Window {
 
     pub fn set_mouse_lock(&mut self, locked: bool) {
         self.win
-            .set_cursor_grab(locked)
-            .expect("Failed to lock mouse!");
+            .set_cursor_grab(CursorGrabMode::Confined)
+            .unwrap_or_else(|err| log::error!("Failed to lock mouse {err}"));
         self.win.set_cursor_visible(!locked);
         self.mouse_locked = locked;
     }
