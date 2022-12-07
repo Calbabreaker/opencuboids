@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use bevy_ecs::prelude::*;
 use noise::NoiseFn;
-use opencuboids_common::{in_bounds, loop_3d_vec, BlockID, Chunk, CHUNK_SIZE};
+use opencuboids_common::{in_bounds, iter_3d_vec, BlockID, Chunk, CHUNK_SIZE};
 
 use super::{physics::WorldTransform, Player};
 
@@ -39,9 +39,7 @@ pub fn chunk_update(
     let (player_trans, _) = player_query.single();
 
     // If the player has moved into a different chunk
-    let player_chunk_pos = (player_trans.position / CHUNK_SIZE as f32)
-        .floor()
-        .as_ivec3();
+    let player_chunk_pos = player_trans.position.as_ivec3() / CHUNK_SIZE as i32;
     if chunk_manager
         .chunk_pos_center
         .map_or(true, |pos| player_chunk_pos != pos)
@@ -54,27 +52,28 @@ pub fn chunk_update(
         // Get chunks 1 more chunk pos than renderered to handle chunk neighbours on the edges
         let start = player_chunk_pos - RENDER_DISTANCE;
         let end = player_chunk_pos + RENDER_DISTANCE;
-        // only client side for now because not working network
-        loop_3d_vec!(start, end, chunk_pos, {
+
+        // Only client side for now because not working network
+        for chunk_pos in iter_3d_vec(start, end) {
             if !chunk_manager.chunk_map.contains_key(&chunk_pos) {
                 let mut chunk = Chunk::new(chunk_pos);
                 gen_blocks(&mut chunk, chunk_pos);
                 chunk_manager.chunk_map.insert(chunk.pos, chunk);
             }
-        });
+        }
 
         // Loop around in a spiral adding chunks meshes
         for i in 0..RENDER_DISTANCE {
             let start_pos = player_chunk_pos - i;
             let end_pos = player_chunk_pos + i;
-            loop_3d_vec!(start_pos, end_pos, chunk_pos, {
+            for chunk_pos in iter_3d_vec(start_pos, end_pos) {
                 // Only create the mesh if it's outside the previous center pos
                 if chunk_manager.chunk_pos_center.map_or(true, |center_pos| {
                     !in_bounds(chunk_pos, center_pos, RENDER_DISTANCE)
                 }) {
                     chunk_manager.chunk_update_queue.push_back(chunk_pos);
                 }
-            });
+            }
         }
 
         chunk_manager.chunk_pos_center = Some(player_chunk_pos);

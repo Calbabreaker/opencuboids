@@ -135,6 +135,7 @@ impl MainRenderer {
             .instance
             .take()
             .expect("Tried to present before calling begin");
+
         queue.submit(std::iter::once(instance.encoder.finish()));
         instance.output.present();
     }
@@ -148,6 +149,7 @@ impl MainRenderer {
             .instance
             .as_mut()
             .expect("Tried to begin render pass calling begin");
+
         instance
             .encoder
             .begin_render_pass(&wgpu::RenderPassDescriptor {

@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 use opencuboids_common::{
-    in_bounds, loop_3d, Chunk, CHUNK_SIZE, CHUNK_VOLUME, DIRECTION_TO_VECTOR,
+    in_bounds, iter_3d, Chunk, CHUNK_SIZE, CHUNK_VOLUME, DIRECTION_TO_VECTOR,
 };
 
 use crate::world::{ChunkManager, WorldTransform, RENDER_DISTANCE};
@@ -55,6 +55,23 @@ const CUBE_VERTICES: &[glam::UVec3] = &[
     glam::uvec3(0, 1, 1),
 ];
 
+fn add_face(
+    verticies: &mut [Vertex],
+    vertex_i: &mut usize,
+    dir_index: usize,
+    block_pos: glam::UVec3,
+) {
+    // Add face
+    for i in 0..4 {
+        let pos = CUBE_VERTICES[CUBE_INDICES[(dir_index * 4) + i]] + block_pos;
+
+        // Pack vertex data
+        let vertex = pos.x | pos.y << 6 | pos.z << 12 | (i as u32) << 18 | (dir_index as u32) << 20;
+        verticies[*vertex_i] = Vertex(vertex);
+        *vertex_i += 1;
+    }
+}
+
 #[derive(Component)]
 pub struct ChunkMesh {
     vertex_buffer: Buffer<Vertex>,
@@ -67,7 +84,7 @@ impl ChunkMesh {
         let mut vertex_i = 0;
 
         let chunk_block_pos = chunk.pos * CHUNK_SIZE as i32;
-        loop_3d!(0..CHUNK_SIZE as i32, block_pos, {
+        for block_pos in iter_3d(0, CHUNK_SIZE as i32) {
             if chunk.get_block(block_pos.as_uvec3()) == 0 {
                 continue;
             }
@@ -81,23 +98,15 @@ impl ChunkMesh {
                     .unwrap_or_else(|| chunk_manager.get_block(neighbour_pos + chunk_block_pos))
                     == 0
                 {
-                    // Add face
-                    for i in 0..4 {
-                        let pos =
-                            CUBE_VERTICES[CUBE_INDICES[(dir_index * 4) + i]] + block_pos.as_uvec3();
-
-                        // Pack vertex data
-                        let vertex = pos.x
-                            | pos.y << 6
-                            | pos.z << 12
-                            | (i as u32) << 18
-                            | (dir_index as u32) << 20;
-                        verticies[vertex_i] = Vertex(vertex);
-                        vertex_i += 1;
-                    }
+                    add_face(
+                        &mut verticies,
+                        &mut vertex_i,
+                        dir_index,
+                        block_pos.as_uvec3(),
+                    );
                 }
             }
-        });
+        }
 
         if vertex_i > 0 {
             Some(Self {

@@ -2,7 +2,7 @@ mod world_gen;
 
 use std::net::{SocketAddr, TcpListener, TcpStream};
 
-use opencuboids_common::{loop_3d_vec, network, Chunk};
+use opencuboids_common::{iter_3d_vec, network, Chunk};
 
 pub fn start(address: SocketAddr) {
     if let Err(err) = bind(address) {
@@ -40,12 +40,12 @@ fn handle_client(stream: TcpStream) -> network::Result<()> {
 
         match request {
             Request::ChunkRange { start, end } => {
-                loop_3d_vec!(start, end, chunk_pos, {
+                for chunk_pos in iter_3d_vec(start, end) {
                     let mut chunk = Chunk::new(chunk_pos);
                     world_gen::gen_blocks(&mut chunk, chunk_pos);
                     let response = Response::ChunkData(chunk);
                     protocol.send(&response)?
-                })
+                }
             }
         }
     }

@@ -51,32 +51,16 @@ impl Chunk {
     }
 }
 
-#[macro_export]
-macro_rules! loop_3d_vec {
-    ($start: expr, $end: expr, $pos: ident, $code: expr) => {
-        for x in $start.x..=$end.x {
-            for y in $start.y..=$end.y {
-                for z in $start.z..=$end.z {
-                    let $pos = glam::ivec3(x, y, z);
-                    $code
-                }
-            }
-        }
-    };
+pub fn iter_3d(start: i32, end: i32) -> impl Iterator<Item = glam::IVec3> {
+    (start..end).flat_map(move |x| {
+        (start..end).flat_map(move |y| (start..end).map(move |z| glam::ivec3(x, y, z)))
+    })
 }
 
-#[macro_export]
-macro_rules! loop_3d {
-    ($range: expr, $pos: ident, $code: expr) => {
-        for x in $range {
-            for y in $range {
-                for z in $range {
-                    let $pos = glam::ivec3(x, y, z);
-                    $code
-                }
-            }
-        }
-    };
+pub fn iter_3d_vec(start: glam::IVec3, end: glam::IVec3) -> impl Iterator<Item = glam::IVec3> {
+    (start.x..end.x).flat_map(move |x| {
+        (start.y..end.y).flat_map(move |y| (start.z..end.z).map(move |z| glam::ivec3(x, y, z)))
+    })
 }
 
 pub fn serialize_blocks<S: Serializer>(
